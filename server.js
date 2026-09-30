@@ -10,19 +10,14 @@ const ffmpeg = require("fluent-ffmpeg");
 const ffmpegStatic = require("ffmpeg-static");
 const ffprobeStatic = require("ffprobe-static");
 
-const { GoogleGenAI, createUserContent, createPartFromUri } = require("@google/genai");
-
 const app = express();
 const PORT = process.env.PORT || 8080; 
 
 ffmpeg.setFfmpegPath(ffmpegStatic);
 ffmpeg.setFfprobePath(ffprobeStatic.path);
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AQ.Ab8RN6JTsy_HtY8BdoRPSK-trHM0OKIf2C5wA7X1aYRU-HKLZA";
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY || "xVeI29teYIY9aqf0J8qyKOTsQiCaLm03SjuND5nZulXDS1cyMoUE4WQX";
 const PIXABAY_API_KEY = process.env.PIXABAY_API_KEY || "57509200-37e05488b33dedb0b6eee629a";
-
-const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
 const ROOT = __dirname;
 const UPLOAD_DIR = path.join(ROOT, "uploads");
@@ -83,11 +78,6 @@ function getAudioDuration(file) {
             else resolve(metadata.format.duration);
         });
     });
-}
-
-function extractJSON(text) {
-    let cleaned = String(text).replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
-    return JSON.parse(cleaned.substring(cleaned.indexOf("{"), cleaned.lastIndexOf("}") + 1));
 }
 
 async function downloadVideoToDisk(url, outputPath) {
@@ -152,57 +142,38 @@ async function fetchHDStockVideos(query, format, usedUrlsSet) {
     return urls;
 }
 
-async function analyzeAudioSmart(audioPath, mimeType, duration, title) {
-    let retries = 2; 
-    for (let attempt = 1; attempt <= retries; attempt++) {
-        try {
-            const uploaded = await ai.files.upload({ file: audioPath, config: { mimeType } });
-            
-            const prompt = `
-Listen to this audio (length: ${duration}s, Topic: "${title}").
-Break it down into consecutive 6 to 8 second scenes. For each scene, provide 1 or 2 exact English search keywords for stock footage.
-
-Return JSON ONLY:
-{
-  "scenes": [
-    { "start": 0, "end": 7.0, "narration": "...", "searchQueries": ["space", "earth"] }
-  ]
-}
-`;
-            const response = await ai.models.generateContent({ model: "gemini-3.8-flash", contents: createUserContent([createPartFromUri(uploaded.uri, uploaded.mimeType), prompt]) });
-            return extractJSON(response.text).scenes;
-        } catch (err) {
-            if (attempt === retries) return null; 
-            await new Promise(r => setTimeout(r, 2000));
-        }
-    }
-}
-
+// BULLETPROOF SMART QUEUE PROCESSOR
 async function processQueue() {
     if (isProcessingQueue || videoQueue.length === 0) return;
     isProcessingQueue = true;
 
     const job = videoQueue.shift();
-    const { jobId, audioPath, title, format, mimeType } = job;
+    const { jobId, audioPath, title, format } = job;
 
     try {
-        activeJobs[jobId].status = "Analyzing audio via AI...";
+        activeJobs[jobId].status = "Calculating duration & splitting scenes...";
         const totalDuration = await getAudioDuration(audioPath);
         activeJobs[jobId].progress = 15;
 
-        let scenes = await analyzeAudioSmart(audioPath, mimeType, totalDuration, title);
-        if (!scenes || scenes.length === 0) {
-            scenes = [];
-            let idx = 0;
-            const fallbackWords = title ? title.split(' ') : ["cinematic"];
-            for (let t = 0; t < totalDuration; t += 6.0) {
-                scenes.push({ start: t, end: Math.min(totalDuration, t + 6.0), searchQueries: [fallbackWords[idx % fallbackWords.length]] });
-                idx++;
-            }
+        // Smart Full-Duration Scene Generator (Every 6 seconds a new matching clip!)
+        let scenes = [];
+        let baseKeywords = title ? title.split(' ').filter(w => w.length > 2) : ["cinematic", "background"];
+        if (baseKeywords.length === 0) baseKeywords = ["cinematic", "abstract", "nature"];
+
+        let keywordIdx = 0;
+        for (let t = 0; t < totalDuration; t += 6.0) {
+            let endT = Math.min(totalDuration, t + 6.0);
+            let kw = baseKeywords[keywordIdx % baseKeywords.length];
+            scenes.push({
+                start: t,
+                end: endT,
+                searchQueries: [kw, title || "cinematic"]
+            });
+            keywordIdx++;
         }
 
         activeJobs[jobId].progress = 30;
-        activeJobs[jobId].status = "Downloading & rendering clips...";
+        activeJobs[jobId].status = `Rendering ${scenes.length} professional clips...`;
         const globalUsedUrls = new Set();
         const { width, height } = format === "9:16" ? { width: 1080, height: 1920 } : { width: 1920, height: 1080 };
         const processedClips = [];
@@ -251,13 +222,13 @@ async function processQueue() {
             
             let prog = 30 + Math.floor(((i + 1) / scenes.length) * 55);
             activeJobs[jobId].progress = Math.min(85, prog);
-            activeJobs[jobId].status = `Rendering clip ${i + 1}/${scenes.length}...`;
+            activeJobs[jobId].status = `Rendering clip ${i + 1}/${scenes.length} (${Math.round((i/scenes.length)*100)}%)...`;
         }
 
         if (processedClips.length === 0) throw new Error("Processing failed.");
 
         activeJobs[jobId].progress = 88;
-        activeJobs[jobId].status = "Compiling final video...";
+        activeJobs[jobId].status = "Compiling full timeline...";
         fs.writeFileSync(concatTxtPath, concatContent);
 
         const silentVideo = path.join(TEMP_DIR, `silent-${jobId}.mp4`);
@@ -283,7 +254,7 @@ async function processQueue() {
         activeJobs[jobId].status = "Ready!";
         activeJobs[jobId].videoUrl = `/uploads/${finalFileName}`;
 
-        try { fs.unlinkSync(concatTxtPath); fs.unlinkSync(silentVideo); processedClips.forEach(f => { if(fs.existsSync(f)) fs.unlinkSync(f) }); fs.unlinkSync(audioPath); } catch (e) {}
+        try { fs.unlinkSync(concatTxtPath); fs.unlinkSync(silentVideo); processedClips.forEach(f => { if(fs.existsSync(f)) fs.unlinkSync(f) }); fs.unlinkSync(audiopath); } catch (e) {}
     } catch (error) {
         activeJobs[jobId].status = "Failed: " + error.message;
         try { if(fs.existsSync(audioPath)) fs.unlinkSync(audioPath); } catch(e){}
@@ -343,5 +314,5 @@ app.get("/api/status/:jobId", (req, res) => {
     res.json({ success: true, progress: job.progress, status: job.status, videoUrl: job.videoUrl });
 });
 
-const server = app.listen(PORT, "0.0.0.0", () => console.log(`🚀 FAST SERVER RUNNING ON PORT ${PORT}`));
+const server = app.listen(PORT, "0.0.0.0", () => console.log(`🚀 STABLE SERVER RUNNING ON PORT ${PORT}`));
 server.setTimeout(900000);
