@@ -117,7 +117,7 @@ async function fetchHDStockVideos(query, format, usedUrlsSet) {
     const orientation = format === "9:16" ? "portrait" : "landscape";
 
     try {
-        const pRes = `https://api.pexels.com/videos/search?query=${q}&per_page=30&orientation=${orientation}`;
+        const pRes = `https://api.pexels.com/videos/search?query=${q}&per_page=20&orientation=${orientation}`;
         const pFetch = await fetch(pRes, { headers: { Authorization: PEXELS_API_KEY } });
         const data = await pFetch.json();
         if (data.videos) {
@@ -135,7 +135,7 @@ async function fetchHDStockVideos(query, format, usedUrlsSet) {
     } catch (e) {}
 
     try {
-        const pixRes = `https://pixabay.com/api/videos/?key=${PIXABAY_API_KEY}&q=${q}&per_page=30`;
+        const pixRes = `https://pixabay.com/api/videos/?key=${PIXABAY_API_KEY}&q=${q}&per_page=20`;
         const pixFetch = await fetch(pixRes);
         const data = await pixFetch.json();
         if (data.hits) {
@@ -150,26 +150,10 @@ async function fetchHDStockVideos(query, format, usedUrlsSet) {
         }
     } catch (e) {}
 
-    try {
-        const wikiRes = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${q}&gsrnamespace=6&gsrlimit=10&prop=imageinfo&iiprop=url&format=json`;
-        const wikiFetch = await fetch(wikiRes);
-        const wikiData = await wikiFetch.json();
-        if (wikiData.query && wikiData.query.pages) {
-            Object.values(wikiData.query.pages).forEach(page => {
-                if (page.imageinfo && page.imageinfo[0] && page.imageinfo[0].url) {
-                    const url = page.imageinfo[0].url;
-                    if (url.endsWith('.webm') || url.endsWith('.mp4')) {
-                        if (!usedUrlsSet.has(url)) urls.push(url);
-                    }
-                }
-            });
-        }
-    } catch (e) {}
-
     return urls;
 }
 
-// BULLETPROOF CONCAT WORKER
+// STABLE QUEUE WORKER
 async function processQueue() {
     if (isProcessingQueue || videoQueue.length === 0) return;
     isProcessingQueue = true;
@@ -178,56 +162,40 @@ async function processQueue() {
     const { jobId, audioPath, title, format } = job;
 
     try {
-        activeJobs[jobId].status = "Reading exact audio duration...";
+        activeJobs[jobId].status = "Reading audio duration...";
         activeJobs[jobId].progress = 10;
         
         const totalDuration = await getAudioDuration(audioPath);
         activeJobs[jobId].progress = 20;
-        activeJobs[jobId].status = `Audio duration: ${Math.floor(totalDuration)}s. Fetching topic clips...`;
+        activeJobs[jobId].status = `Audio duration: ${Math.floor(totalDuration)}s. Fetching clips...`;
 
         let cleanTitle = title ? title.trim() : "cinematic";
-        let titleWords = cleanTitle.split(' ').filter(w => w.length > 2);
-        if (titleWords.length === 0) titleWords = [cleanTitle];
-
         let scenes = [];
-        let keywordIdx = 0;
         
         for (let t = 0; t < totalDuration; t += 5.0) {
             let endT = Math.min(totalDuration, t + 5.0);
-            let primaryKeyword = titleWords[keywordIdx % titleWords.length];
             scenes.push({
                 start: t,
                 end: endT,
-                searchQueries: [primaryKeyword, cleanTitle]
+                query: cleanTitle
             });
-            keywordIdx++;
         }
 
         activeJobs[jobId].progress = 30;
         const globalUsedUrls = new Set();
         const { width, height } = format === "9:16" ? { width: 1080, height: 1920 } : { width: 1920, height: 1080 };
         const processedClips = [];
-        const concatTxtPath = path.join(TEMP_DIR, `list-${jobId}.txt`);
-        let concatLines = [];
 
         for (let i = 0; i < scenes.length; i++) {
             const scene = scenes[i];
             const sceneDur = scene.end - scene.start;
-            let urlsForScene = [];
             
-            for (let q of scene.searchQueries) {
-                const freshUrls = await fetchHDStockVideos(q, format, globalUsedUrls);
-                urlsForScene.push(...freshUrls);
-                if (urlsForScene.length >= 3) break;
-            }
-
+            let urlsForScene = await fetchHDStockVideos(scene.query, format, globalUsedUrls);
             if (urlsForScene.length === 0) {
-                const fallbackUrls = await fetchHDStockVideos(cleanTitle, format, new Set());
-                if (fallbackUrls.length > 0) {
-                    urlsForScene.push(fallbackUrls[i % fallbackUrls.length]);
-                } else {
-                    urlsForScene.push("https://images.pexels.com/videos/854132/free-video-854132.mp4");
-                }
+                urlsForScene = await fetchHDStockVideos("cinematic", format, new Set());
+            }
+            if (urlsForScene.length === 0) {
+                urlsForScene.push("https://images.pexels.com/videos/854132/free-video-854132.mp4");
             }
 
             const chosenUrl = urlsForScene[Math.floor(Math.random() * urlsForScene.length)]; 
@@ -250,9 +218,6 @@ async function processQueue() {
                     });
                     if (fs.existsSync(processedClip) && fs.statSync(processedClip).size > 1000) {
                         processedClips.push(processedClip);
-                        // Safe absolute path formatting with single quotes escaped or handled safely
-                        const absPath = path.resolve(processedClip).replace(/\\/g, "/");
-                        concatLines.push(`file '${absPath}'`);
                     }
                 }
             } catch (err) {}
@@ -260,29 +225,26 @@ async function processQueue() {
             
             let prog = 30 + Math.floor(((i + 1) / scenes.length) * 55);
             activeJobs[jobId].progress = Math.min(85, prog);
-            activeJobs[jobId].status = `Rendering topic scene ${i + 1} of ${scenes.length} (${Math.round(((i+1)/scenes.length)*100)}%)...`;
+            activeJobs[jobId].status = `Rendering scene ${i + 1} of ${scenes.length}...`;
         }
 
         if (processedClips.length === 0) throw new Error("Processing failed: No clips could be rendered.");
 
         activeJobs[jobId].progress = 88;
-        activeJobs[jobId].status = "Compiling exact topic video timeline...";
-        
-        // Write file with exact LF line endings and UTF-8 encoding
-        fs.writeFileSync(concatTxtPath, concatLines.join("\n"), { encoding: "utf8", flag: "w" });
+        activeJobs[jobId].status = "Compiling video timeline...";
 
         const silentVideo = path.join(TEMP_DIR, `silent-${jobId}.mp4`);
         const finalFileName = `FINAL-${jobId}.mp4`;
         const finalFilePath = path.join(UPLOAD_DIR, finalFileName);
 
+        // Direct fluent-ffmpeg merge command (No text file concat issues)
         await new Promise((resolve, reject) => {
-            ffmpeg()
-                .input(concatTxtPath)
-                .inputOptions(["-f concat", "-safe 0"])
-                .outputOptions(["-c:v libx264", "-preset ultrafast", "-pix_fmt yuv420p"])
+            let merger = ffmpeg();
+            processedClips.forEach(clip => merger.input(clip));
+            merger
                 .on("end", resolve)
-                .on("error", (err) => reject(new Error("Concat failed: " + err.message)))
-                .save(silentVideo);
+                .on("error", (err) => reject(new Error("Merge failed: " + err.message)))
+                .mergeToFile(silentVideo, TEMP_DIR);
         });
 
         if (!fs.existsSync(silentVideo) || fs.statSync(silentVideo).size < 1000) {
@@ -290,7 +252,7 @@ async function processQueue() {
         }
 
         activeJobs[jobId].progress = 95;
-        activeJobs[jobId].status = "Merging full audio voiceover...";
+        activeJobs[jobId].status = "Adding voiceover audio...";
 
         await new Promise((resolve, reject) => {
             ffmpeg()
@@ -314,7 +276,6 @@ async function processQueue() {
         activeJobs[jobId].videoUrl = `/uploads/${finalFileName}`;
 
         try { 
-            if (fs.existsSync(concatTxtPath)) fs.unlinkSync(concatTxtPath); 
             if (fs.existsSync(silentVideo)) fs.unlinkSync(silentVideo); 
             processedClips.forEach(f => { if(fs.existsSync(f)) fs.unlinkSync(f) }); 
             if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath); 
@@ -378,5 +339,5 @@ app.get("/api/status/:jobId", (req, res) => {
     res.json({ success: true, progress: job.progress, status: job.status, videoUrl: job.videoUrl });
 });
 
-const server = app.listen(PORT, "0.0.0.0", () => console.log(`🚀 CONCAT 183-FIXED SERVER RUNNING ON PORT ${PORT}`));
+const server = app.listen(PORT, "0.0.0.0", () => console.log(`🚀 STABLE SERVER RUNNING ON PORT ${PORT}`));
 server.setTimeout(900000);
