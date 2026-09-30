@@ -1,0 +1,32 @@
+{
+  "client1": {
+    "password": "pass1",
+    "limit": 2,
+    "used": 0,
+    "date": ""
+  },
+  "client2": {
+    "password": "pass2",
+    "limit": 3,
+    "used": 0,
+    "date": ""
+  },
+  "client3": {
+    "password": "pass3",
+    "limit": 4,
+    "used": 0,
+    "date": ""
+  },
+  "client4": {
+    "password": "pass4",
+    "limit": 5,
+    "used": 0,
+    "date": ""
+  },
+  "client5": {
+    "password": "pass5",
+    "limit": 6,
+    "used": 0,
+    "date": ""
+  }
+}
