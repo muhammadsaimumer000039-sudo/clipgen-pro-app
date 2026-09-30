@@ -32,8 +32,8 @@ const USERS_FILE = path.join(ROOT, "users.json");
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
 
-app.use(express.json({ limit: "500mb" }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "1gb" }));
+app.use(express.urlencoded({ extended: true, limit: "1gb" }));
 app.use(express.static(ROOT));
 app.use("/uploads", express.static(UPLOAD_DIR));
 
@@ -47,6 +47,8 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 const activeJobs = {};
+let videoQueue = [];
+let isProcessingQueue = false;
 
 function checkDailyLimit(username, password, increment = false) {
     if (!fs.existsSync(USERS_FILE)) return { error: true, message: "System Error: users.json file is missing." };
@@ -90,7 +92,7 @@ function extractJSON(text) {
 
 async function downloadVideoToDisk(url, outputPath) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000); 
+    const timeoutId = setTimeout(() => controller.abort(), 25000); 
     try {
         const res = await fetch(url, { signal: controller.signal });
         clearTimeout(timeoutId);
@@ -116,7 +118,7 @@ async function fetchHDStockVideos(query, format, usedUrlsSet) {
     const orientation = format === "9:16" ? "portrait" : "landscape";
 
     try {
-        const pRes = await fetch(`https://api.pexels.com/videos/search?query=${q}&per_page=40&orientation=${orientation}`, { headers: { Authorization: PEXELS_API_KEY } });
+        const pRes = await fetch(`https://api.pexels.com/videos/search?query=${q}&per_page=30&orientation=${orientation}`, { headers: { Authorization: PEXELS_API_KEY } });
         const data = await pRes.json();
         if (data.videos) {
             data.videos.forEach(v => {
@@ -133,7 +135,7 @@ async function fetchHDStockVideos(query, format, usedUrlsSet) {
     } catch (e) {}
 
     try {
-        const pixRes = await fetch(`https://pixabay.com/api/videos/?key=${PIXABAY_API_KEY}&q=${q}&per_page=40`);
+        const pixRes = await fetch(`https://pixabay.com/api/videos/?key=${PIXABAY_API_KEY}&q=${q}&per_page=30`);
         const data = await pixRes.json();
         if (data.hits) {
             data.hits.forEach(v => {
@@ -158,17 +160,17 @@ async function analyzeAudioSmart(audioPath, mimeType, duration, title) {
             
             const prompt = `
 You are an expert AI video producer. Listen carefully to the provided audio (length: ${duration}s, Topic/Title: "${title}").
-Break the audio down into consecutive 4 to 6 second scenes.
+Break the audio down into consecutive 5 to 7 second scenes.
 
 CRITICAL INSTRUCTIONS FOR 100% RELEVANT VISUAL MATCHING:
-1. EXTRACT CORE NOUNS & SUBJECTS: For every scene, analyze what is being spoken right now. Extract exact, powerful visual objects, places, animals, science terms, or concepts mentioned in the speech.
-2. ENGLISH SEARCH TERMS ONLY: Stock video APIs (Pexels/Pixabay) only understand short English keywords (1 or 2 words maximum, e.g., "lion running", "galaxy space", "doctor smiling", "rain forest").
-3. NEVER REPEAT THE SAME WORD: Keep variety across scenes so the video looks dynamic and cinematic.
+1. EXTRACT CORE NOUNS & SUBJECTS: For every scene, analyze what is being spoken right now. Extract exact visual objects, places, animals, science terms, or concepts.
+2. ENGLISH SEARCH TERMS ONLY: Short keywords (1 or 2 words maximum, e.g., "galaxy space", "robot hand", "forest aerial").
+3. NEVER REPEAT THE SAME WORD BACK TO BACK.
 
 Return JSON ONLY in this exact format:
 {
   "scenes": [
-    { "start": 0, "end": 5.0, "narration": "Spoken text here...", "searchQueries": ["galaxy", "stars"] }
+    { "start": 0, "end": 6.0, "narration": "Spoken text here...", "searchQueries": ["galaxy", "stars"] }
   ]
 }
 `;
@@ -176,12 +178,19 @@ Return JSON ONLY in this exact format:
             return extractJSON(response.text).scenes;
         } catch (err) {
             if (attempt === retries) return null; 
-            await new Promise(r => setTimeout(r, 4000));
+            await new Promise(r => setTimeout(r, 5000));
         }
     }
 }
 
-async function runVideoGenerationJob(jobId, audioPath, title, format, mimeType) {
+// QUEUE PROCESSOR WORKER
+async function processQueue() {
+    if (isProcessingQueue || videoQueue.length === 0) return;
+    isProcessingQueue = true;
+
+    const job = videoQueue.shift();
+    const { jobId, audioPath, title, format, mimeType } = job;
+
     try {
         activeJobs[jobId].status = "Analyzing audio & topic...";
         const totalDuration = await getAudioDuration(audioPath);
@@ -193,8 +202,8 @@ async function runVideoGenerationJob(jobId, audioPath, title, format, mimeType) 
             scenes = [];
             const fallbackWords = title ? title.split(' ') : ["cinematic", "nature"];
             let idx = 0;
-            for (let t = 0; t < totalDuration; t += 4.5) {
-                scenes.push({ start: t, end: Math.min(totalDuration, t + 4.5), searchQueries: [fallbackWords[idx % fallbackWords.length]] });
+            for (let t = 0; t < totalDuration; t += 5.0) {
+                scenes.push({ start: t, end: Math.min(totalDuration, t + 5.0), searchQueries: [fallbackWords[idx % fallbackWords.length]] });
                 idx++;
             }
         }
@@ -237,7 +246,7 @@ async function runVideoGenerationJob(jobId, audioPath, title, format, mimeType) 
                             .outputOptions(["-c:v libx264", "-preset ultrafast", "-pix_fmt yuv420p", "-an"])
                             .on("end", () => { isDone = true; resolve(); }).on("error", () => { isDone = true; resolve(); });
                         cmd.save(processedClip);
-                        setTimeout(() => { if (!isDone) { try { cmd.kill('SIGKILL'); } catch(e){} resolve(); } }, 40000); 
+                        setTimeout(() => { if (!isDone) { try { cmd.kill('SIGKILL'); } catch(e){} resolve(); } }, 45000); 
                     });
                     if (fs.existsSync(processedClip)) {
                         processedClips.push(processedClip);
@@ -246,8 +255,10 @@ async function runVideoGenerationJob(jobId, audioPath, title, format, mimeType) 
                 }
             } catch (err) {}
             try { if (fs.existsSync(rawClip)) fs.unlinkSync(rawClip); } catch(e){}
-            activeJobs[jobId].progress = 25 + Math.floor(((i + 1) / scenes.length) * 60);
-            activeJobs[jobId].status = `Rendering exact matched scene ${i + 1}/${scenes.length}...`;
+            
+            let currentProg = 25 + Math.floor(((i + 1) / scenes.length) * 60);
+            activeJobs[jobId].progress = Math.min(85, currentProg);
+            activeJobs[jobId].status = `Rendering scene ${i + 1}/${scenes.length} (Queue: ${videoQueue.length} waiting)...`;
         }
 
         if (processedClips.length === 0) throw new Error("Processing completely failed.");
@@ -282,7 +293,11 @@ async function runVideoGenerationJob(jobId, audioPath, title, format, mimeType) 
         try { fs.unlinkSync(concatTxtPath); fs.unlinkSync(silentVideo); processedClips.forEach(f => { if(fs.existsSync(f)) fs.unlinkSync(f) }); fs.unlinkSync(audioPath); } catch (e) {}
     } catch (error) {
         activeJobs[jobId].status = "Failed: " + error.message;
+        try { if(fs.existsSync(audioPath)) fs.unlinkSync(audioPath); } catch(e){}
     }
+
+    isProcessingQueue = false;
+    processQueue(); // Process next in queue
 }
 
 app.post("/api/login", (req, res) => {
@@ -295,22 +310,46 @@ app.post("/api/login", (req, res) => {
     res.json({ success: true, message: "Login Successful!", used: limitStatus.used, limit: limitStatus.limit });
 });
 
-app.post("/generate-exact-video", upload.single("audiofile"), (req, res) => {
-    if (!req.file) return res.status(400).json({ success: false, message: "Audio file missing." });
+const uploadHandler = upload.single("audiofile");
+app.post("/generate-exact-video", (req, res) => {
+    uploadHandler(req, res, function (err) {
+        if (err) {
+            return res.status(400).json({ success: false, message: "Upload error: " + err.message });
+        }
+        if (!req.file) return res.status(400).json({ success: false, message: "Audio file missing." });
 
-    const { username, password } = req.body; 
-    const limitStatus = checkDailyLimit(username, password, true); 
-    
-    if (limitStatus.error) {
-        try { fs.unlinkSync(req.file.path); } catch(e) {}
-        return res.json({ success: false, message: limitStatus.message });
-    }
+        const { username, password } = req.body; 
+        const limitStatus = checkDailyLimit(username, password, true); 
+        
+        if (limitStatus.error) {
+            try { fs.unlinkSync(req.file.path); } catch(e) {}
+            return res.json({ success: false, message: limitStatus.message });
+        }
 
-    const jobId = Date.now().toString();
-    activeJobs[jobId] = { progress: 0, status: "Initializing...", videoUrl: null };
-    runVideoGenerationJob(jobId, req.file.path, req.body.title || "video", req.body.format || "16:9", req.file.mimetype);
+        const jobId = Date.now().toString();
+        
+        // Calculate queue position
+        const queuePosition = videoQueue.length + (isProcessingQueue ? 1 : 0);
+        activeJobs[jobId] = { 
+            progress: 0, 
+            status: queuePosition > 0 ? `Added to queue! Position: ${queuePosition}` : "Initializing...", 
+            videoUrl: null 
+        };
 
-    res.json({ success: true, jobId, used: limitStatus.used, limit: limitStatus.limit });
+        // Push to background queue
+        videoQueue.push({
+            jobId,
+            audioPath: req.file.path,
+            title: req.body.title || "video",
+            format: req.body.format || "16:9",
+            mimeType: req.file.mimetype
+        });
+
+        // Trigger queue processor
+        processQueue();
+
+        res.json({ success: true, jobId, used: limitStatus.used, limit: limitStatus.limit });
+    });
 });
 
 app.get("/api/status/:jobId", (req, res) => {
@@ -319,4 +358,5 @@ app.get("/api/status/:jobId", (req, res) => {
     res.json({ success: true, progress: job.progress, status: job.status, videoUrl: job.videoUrl });
 });
 
-app.listen(PORT, "0.0.0.0", () => console.log(`\n🚀 SMART AUDIO-MATCHING SERVER RUNNING ON PORT ${PORT}\n`));
+const server = app.listen(PORT, "0.0.0.0", () => console.log(`\n🚀 ENTERPRISE QUEUE SERVER RUNNING ON PORT ${PORT}\n`));
+server.setTimeout(900000); // 15 minutes timeout
