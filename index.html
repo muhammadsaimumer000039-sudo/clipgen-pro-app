@@ -3,330 +3,458 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClipGen Pro | Enterprise Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <title>ClipGen Pro | Enterprise</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
         :root {
-            --bg-base: #030305;
-            --bg-panel: #0d0d12;
-            --bg-sidebar: #08080a;
+            --bg-dark: #0b0f19;
+            --bg-panel: #111827;
+            --bg-card: #1f2937;
             --primary: #8b5cf6;
             --primary-hover: #7c3aed;
-            --text-main: #ffffff;
-            --text-muted: #94a3b8;
-            --border-color: #1e1e24;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
             --success: #10b981;
-            --card-gradient: linear-gradient(145deg, rgba(139, 92, 246, 0.1) 0%, rgba(0,0,0,0) 100%);
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
-        body { background-color: var(--bg-base); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
-
-        /* Sidebar Navigation */
-        .sidebar { width: 280px; background-color: var(--bg-sidebar); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 30px 20px; z-index: 10; }
-        .logo-area { display: flex; align-items: center; gap: 12px; margin-bottom: 40px; padding-left: 10px; }
-        .logo-icon { width: 38px; height: 38px; background: linear-gradient(135deg, #a855f7, #6366f1); border-radius: 12px; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; box-shadow: 0 0 20px rgba(139, 92, 246, 0.3); }
-        .logo-text h2 { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
-
-        .nav-menu { display: flex; flex-direction: column; gap: 8px; }
-        .nav-item { padding: 14px 18px; border-radius: 10px; color: var(--text-muted); font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: 0.3s; }
-        .nav-item:hover { color: var(--text-main); background-color: rgba(255,255,255,0.03); }
-        .nav-item.active { background-color: var(--bg-panel); color: var(--primary); border: 1px solid var(--border-color); }
-
-        .user-profile { margin-top: auto; display: flex; align-items: center; gap: 12px; padding: 15px; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 12px; }
-        .avatar { width: 40px; height: 40px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: 700; }
-        .user-info h5 { font-size: 14px; font-weight: 700; }
-        .user-info p { font-size: 12px; color: var(--text-muted); }
-
-        /* Main Workspace */
-        .workspace { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
-        .top-header { height: 80px; display: flex; justify-content: space-between; align-items: center; padding: 0 40px; border-bottom: 1px solid var(--border-color); background: rgba(3, 3, 5, 0.8); backdrop-filter: blur(10px); z-index: 5; }
-        .header-title { font-size: 20px; font-weight: 700; color: var(--text-muted); }
+        body { font-family: 'Inter', sans-serif; background: var(--bg-dark); color: var(--text-main); margin: 0; padding: 0; display: flex; height: 100vh; overflow: hidden; }
         
-        .content-area { flex: 1; overflow-y: auto; padding: 40px; }
-        .screen { display: none; animation: fadeIn 0.4s ease; }
-        .screen.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        /* LOGIN SCREEN */
+        #login-screen { position: fixed; inset: 0; background: var(--bg-dark); display: flex; justify-content: center; align-items: center; z-index: 50; }
+        .login-box { background: var(--bg-panel); padding: 40px; border-radius: 12px; width: 400px; text-align: center; border: 1px solid #374151; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+        .login-box h2 { color: var(--primary); font-size: 24px; margin-bottom: 20px; }
+        .login-box input { width: 100%; padding: 12px; margin-bottom: 15px; background: var(--bg-dark); border: 1px solid #374151; color: white; border-radius: 8px; box-sizing: border-box; }
+        .login-box button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+        
+        /* SIDEBAR */
+        .sidebar { width: 260px; background: var(--bg-panel); border-right: 1px solid #1f2937; display: flex; flex-direction: column; padding: 20px 0; }
+        .logo-area { padding: 0 20px 20px; border-bottom: 1px solid #1f2937; display: flex; align-items: center; gap: 10px; }
+        .logo-icon { background: linear-gradient(135deg, #a855f7, #6366f1); width: 35px; height: 35px; border-radius: 8px; display: flex; justify-content: center; align-items: center; }
+        .nav-item { padding: 12px 20px; color: var(--text-muted); display: flex; align-items: center; gap: 15px; cursor: pointer; transition: 0.2s; }
+        .nav-item:hover, .nav-item.active { background: rgba(139, 92, 246, 0.1); color: var(--primary); border-right: 3px solid var(--primary); }
+        .upgrade-card { margin: auto 20px 20px; background: var(--bg-dark); border: 1px solid #374151; padding: 15px; border-radius: 10px; cursor: pointer; transition: 0.2s; }
+        .upgrade-card:hover { border-color: var(--primary); }
+        .upgrade-card button { width: 100%; background: var(--primary); color: white; border: none; padding: 8px; border-radius: 6px; margin-top: 10px; cursor: pointer; }
+        .user-profile { padding: 15px 20px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #1f2937; }
+        .avatar { width: 35px; height: 35px; background: var(--primary); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; }
 
-        /* Dashboard Screen */
-        .welcome-banner { background: var(--card-gradient); border: 1px solid var(--border-color); border-radius: 20px; padding: 40px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
-        .banner-text h1 { font-size: 32px; font-weight: 800; margin-bottom: 10px; }
-        .banner-text p { color: var(--text-muted); font-size: 16px; margin-bottom: 25px; }
-        .btn-create-new { background: linear-gradient(135deg, #a855f7, #6366f1); color: white; padding: 14px 28px; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; border: none; box-shadow: 0 10px 25px rgba(139, 92, 246, 0.3); transition: 0.3s; display: inline-flex; align-items: center; gap: 8px; }
-        .btn-create-new:hover { transform: translateY(-2px); box-shadow: 0 15px 30px rgba(139, 92, 246, 0.5); }
+        /* MAIN CONTENT */
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+        .header { height: 70px; background: var(--bg-panel); border-bottom: 1px solid #1f2937; display: flex; justify-content: space-between; align-items: center; padding: 0 30px; }
+        .limit-badge { background: rgba(139, 92, 246, 0.15); color: var(--primary); padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; border: 1px solid rgba(139, 92, 246, 0.3); }
+        
+        .content-area { padding: 30px; max-width: 1000px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+        
+        /* UPLOAD SECTION */
+        #upload-section { background: var(--bg-panel); border: 1px solid #1f2937; border-radius: 12px; padding: 30px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; color: var(--text-muted); margin-bottom: 8px; font-size: 14px; }
+        .form-group input, .form-group select { width: 100%; padding: 12px; background: var(--bg-dark); border: 1px solid #374151; color: white; border-radius: 8px; box-sizing: border-box; }
+        .file-drop { border: 2px dashed #374151; padding: 40px; text-align: center; border-radius: 8px; cursor: pointer; color: var(--text-muted); }
+        .file-drop:hover { border-color: var(--primary); color: var(--primary); }
+        .btn-generate { background: var(--primary); color: white; border: none; padding: 14px 24px; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; transition: 0.2s; }
+        .btn-generate:hover { background: var(--primary-hover); }
 
-        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 40px; }
-        .stat-card { background: var(--bg-panel); border: 1px solid var(--border-color); padding: 25px; border-radius: 16px; }
-        .stat-title { font-size: 13px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; margin-bottom: 10px; }
-        .stat-value { font-size: 28px; font-weight: 800; color: white; }
+        /* PROGRESS TRACKER */
+        #progress-section { display: none; }
+        .step-tracker { display: flex; justify-content: space-between; position: relative; margin-bottom: 40px; padding: 20px; background: var(--bg-panel); border-radius: 12px; border: 1px solid #1f2937; }
+        .step-tracker::before { content: ''; position: absolute; top: 35px; left: 40px; right: 40px; height: 2px; background: #374151; z-index: 1; }
+        .step { display: flex; flex-direction: column; align-items: center; z-index: 2; width: 80px; }
+        .step-circle { width: 30px; height: 30px; border-radius: 50%; background: #374151; color: var(--text-muted); display: flex; justify-content: center; align-items: center; font-size: 12px; font-weight: bold; margin-bottom: 10px; transition: 0.3s; }
+        .step.active .step-circle { background: var(--primary); color: white; box-shadow: 0 0 10px rgba(139, 92, 246, 0.5); }
+        .step.done .step-circle { background: var(--primary); color: white; }
+        .step-label { font-size: 11px; color: var(--text-muted); text-align: center; }
+        .step.active .step-label { color: var(--primary); font-weight: 600; }
 
-        /* Create Screen (Upload Form) */
-        .creation-container { max-width: 800px; margin: 0 auto; }
-        .form-card { background: var(--bg-panel); border: 1px solid var(--border-color); padding: 40px; border-radius: 20px; }
-        .input-group { margin-bottom: 25px; }
-        .input-label { display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .input-field { width: 100%; background-color: var(--bg-base); border: 1px solid var(--border-color); color: white; padding: 16px 20px; border-radius: 12px; font-size: 15px; outline: none; transition: 0.2s; }
-        .input-field:focus { border-color: var(--primary); background: rgba(139, 92, 246, 0.05); }
-        textarea.input-field { min-height: 100px; resize: vertical; }
+        .scene-list { display: flex; flex-direction: column; gap: 15px; margin-bottom: 30px; }
+        .scene-card { background: var(--bg-panel); border: 1px solid #1f2937; border-radius: 12px; padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; }
+        .scene-time { color: var(--text-main); font-weight: 500; width: 120px; }
+        .scene-keyword { color: var(--text-muted); font-size: 13px; flex: 1; text-align: center; text-transform: uppercase; letter-spacing: 1px; }
+        .scene-visual { display: flex; align-items: center; gap: 15px; }
+        .visual-img { width: 120px; height: 68px; background: #374151; border-radius: 6px; background-size: cover; background-position: center; }
+        .source-tag { background: rgba(16, 185, 129, 0.1); color: var(--success); padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; border: 1px solid rgba(16, 185, 129, 0.3); display: flex; align-items: center; gap: 5px; }
 
-        /* Progress Stepper */
-        .tracker-ui { display: none; margin-top: 30px; }
-        .stepper-container { background-color: var(--bg-panel); padding: 30px; border-radius: 16px; border: 1px solid var(--border-color); margin-bottom: 20px; }
-        .stepper { display: flex; justify-content: space-between; position: relative; }
-        .stepper::before { content: ''; position: absolute; top: 18px; left: 0; right: 0; height: 2px; background-color: var(--border-color); z-index: 1; }
-        .step { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100px; }
-        .step-circle { width: 38px; height: 38px; border-radius: 50%; background-color: var(--bg-base); border: 2px solid var(--border-color); display: flex; justify-content: center; align-items: center; font-size: 14px; font-weight: 700; color: var(--text-muted); }
-        .step.active .step-circle { background-color: var(--primary); border-color: var(--primary); color: white; box-shadow: 0 0 20px rgba(139, 92, 246, 0.4); }
-        .step.completed .step-circle { background-color: var(--primary); border-color: var(--primary); color: white; }
-        .step-label { font-size: 12px; color: var(--text-muted); text-align: center; font-weight: 600; }
-        .step.active .step-label { color: white; }
+        .bottom-progress { background: var(--bg-panel); padding: 20px; border-radius: 12px; border: 1px solid #1f2937; }
+        .bp-header { display: flex; justify-content: space-between; margin-bottom: 10px; color: var(--text-muted); font-size: 14px; }
+        .bp-bar-bg { height: 8px; background: #374151; border-radius: 4px; overflow: hidden; }
+        .bp-bar-fill { height: 100%; background: linear-gradient(to right, #8b5cf6, #d946ef); width: 0%; transition: width 0.5s; }
+        #final-download { display: none; margin-top: 20px; text-align: center; }
 
-        .progress-bar-container { width: 100%; height: 8px; background: var(--bg-base); border-radius: 4px; overflow: hidden; margin-top: 20px; }
-        .progress-fill { height: 100%; background: linear-gradient(90deg, #6366f1, #a855f7); width: 0%; transition: width 0.5s ease; }
-        .status-text { margin-top: 15px; font-size: 14px; color: var(--text-muted); text-align: center; }
+        /* UPGRADE / PRICING SECTION */
+        #upgrade-section { display: none; }
+        .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 25px; }
+        .pricing-card { background: var(--bg-panel); border: 1px solid #1f2937; border-radius: 12px; padding: 30px; text-align: center; position: relative; transition: 0.3s; }
+        .pricing-card:hover { transform: translateY(-5px); border-color: var(--primary); box-shadow: 0 10px 30px rgba(139,92,246,0.1); }
+        .pricing-card.popular { border: 2px solid var(--primary); }
+        .pricing-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--primary); color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .plan-title { color: var(--text-muted); font-size: 14px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+        .plan-price { font-size: 32px; color: white; font-weight: bold; margin-bottom: 20px; }
+        .plan-features { list-style: none; padding: 0; margin: 0 0 30px 0; text-align: left; }
+        .plan-features li { margin-bottom: 12px; font-size: 14px; color: var(--text-main); display: flex; align-items: center; gap: 10px; }
+        .plan-features li i { color: var(--success); }
+        .btn-whatsapp { display: inline-block; width: 100%; background: #25D366; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; text-decoration: none; transition: 0.2s; box-sizing: border-box; }
+        .btn-whatsapp:hover { background: #128C7E; }
 
-        /* Library Grid */
-        .video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; }
-        .video-card { background-color: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 16px; overflow: hidden; transition: 0.3s; }
-        .video-card:hover { transform: translateY(-5px); border-color: rgba(139, 92, 246, 0.5); }
-        .video-card video { width: 100%; aspect-ratio: 16/9; background-color: #000; object-fit: cover; }
-        .video-info { padding: 20px; }
-        .video-title { font-size: 15px; font-weight: 700; margin-bottom: 15px; }
-        .download-btn { background: rgba(139, 92, 246, 0.15); color: #c084fc; text-decoration: none; font-size: 13px; font-weight: 700; padding: 10px 15px; border-radius: 8px; display: inline-block; transition: 0.2s; }
-        .download-btn:hover { background: var(--primary); color: white; }
+        /* SETTINGS SECTION */
+        #settings-section { display: none; background: var(--bg-panel); border: 1px solid #1f2937; border-radius: 12px; padding: 30px; }
+        .locked-input { position: relative; }
+        .locked-input i { position: absolute; left: 15px; top: 15px; color: #ef4444; font-size: 14px; }
+        .locked-input input { padding-left: 42px !important; background: rgba(31, 41, 55, 0.6) !important; color: #6b7280 !important; border-color: rgba(239, 68, 68, 0.3) !important; cursor: not-allowed; }
+
     </style>
 </head>
 <body>
 
-    <!-- SIDEBAR -->
-    <div class="sidebar">
-        <div class="logo-area">
-            <div class="logo-icon">▶</div>
-            <div class="logo-text"><h2>ClipGen Pro</h2></div>
-        </div>
-
-        <div class="nav-menu">
-            <div class="nav-item active" id="nav-dashboard" onclick="switchTab('dashboard', 'Dashboard')">📊 Dashboard</div>
-            <div class="nav-item" id="nav-create" onclick="switchTab('create', 'Studio')">🎬 Create Video</div>
-            <div class="nav-item" id="nav-library" onclick="switchTab('library', 'My Library')">🗂️ My Library</div>
-        </div>
-
-        <div class="user-profile">
-            <div class="avatar">N</div>
-            <div class="user-info">
-                <h5>nomi007</h5>
-                <p>Enterprise Plan</p>
-            </div>
+    <!-- LOGIN -->
+    <div id="login-screen">
+        <div class="login-box">
+            <h2>ClipGen Pro</h2>
+            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">Enterprise Dashboard Access</p>
+            <input type="password" id="password" placeholder="Enter Security Password">
+            <button onclick="login()">Login to Workspace</button>
+            <p id="login-msg" style="color: #ef4444; font-size: 14px; margin-top: 15px; display: none;"></p>
         </div>
     </div>
 
-    <!-- MAIN WORKSPACE -->
-    <div class="workspace">
-        <div class="top-header">
-            <div class="header-title" id="pageTitle">Dashboard</div>
-            <div style="font-size: 13px; color: var(--primary); font-weight: 600;">✨ Premium License Active</div>
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="logo-area">
+            <div class="logo-icon"><i class="fas fa-play" style="color:white; font-size:14px;"></i></div>
+            <div>
+                <div style="font-weight: 700; font-size: 16px;">ClipGen Pro</div>
+                <div style="font-size: 11px; color: var(--text-muted);">Your Audio. Stunning Videos.</div>
+            </div>
+        </div>
+        <div style="margin-top: 20px;">
+            <div class="nav-item active" id="nav-create" onclick="switchTab('create')"><i class="fas fa-video"></i> Create Video</div>
+            <div class="nav-item" id="nav-upgrade" onclick="switchTab('upgrade')"><i class="fas fa-arrow-up"></i> Upgrade Plan</div>
+            <div class="nav-item" id="nav-settings" onclick="switchTab('settings')"><i class="fas fa-cog"></i> Settings</div>
+        </div>
+        
+        <div class="upgrade-card" onclick="switchTab('upgrade')">
+            <div style="font-size: 13px; font-weight: 600; margin-bottom: 5px;"><i class="fas fa-crown" style="color: #8b5cf6;"></i> Upgrade Plan</div>
+            <div style="font-size: 11px; color: var(--text-muted);">Get more credits and create more amazing videos.</div>
+            <button>Upgrade via WhatsApp</button>
+        </div>
+
+        <div class="user-profile">
+            <div class="avatar" id="user-initial">U</div>
+            <div>
+                <div style="font-size: 14px; font-weight: 600;" id="user-name">User</div>
+                <div style="font-size: 11px; color: var(--text-muted);">Enterprise</div>
+            </div>
+            <i class="fas fa-sign-out-alt" style="margin-left:auto; color:var(--text-muted); cursor:pointer;" onclick="location.reload()"></i>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+        <div class="header">
+            <div style="font-size: 12px; color: var(--text-muted);"><i class="fas fa-magic"></i> Made by ClipGen AI</div>
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <div class="limit-badge"><i class="fas fa-calendar-day"></i> <span id="limit-text">0/0 today</span></div>
+                <i class="fas fa-bell" style="color: var(--text-muted);"></i>
+            </div>
         </div>
 
         <div class="content-area">
             
-            <!-- 1. DASHBOARD SCREEN (Default) -->
-            <div id="dashboard" class="screen active">
-                <div class="welcome-banner">
-                    <div class="banner-text">
-                        <h1>Welcome back, nomi007!</h1>
-                        <p>Ready to generate your next cinematic documentary?</p>
-                        <button class="btn-create-new" onclick="document.getElementById('nav-create').click()">
-                            <span>+</span> Create New Video
-                        </button>
+            <!-- UPLOAD SECTION -->
+            <div id="upload-section">
+                <h2 style="margin-top: 0;">Create New Video</h2>
+                
+                <div class="form-group">
+                    <label>1. Upload Audio File</label>
+                    <div class="file-drop" onclick="document.getElementById('audiofile').click()">
+                        <i class="fas fa-cloud-upload-alt" style="font-size: 30px; margin-bottom: 10px;"></i>
+                        <div id="file-name">Click to browse or drag audio here</div>
                     </div>
-                    <div style="font-size: 80px; opacity: 0.8;">🚀</div>
+                    <input type="file" id="audiofile" accept="audio/*" style="display:none;" onchange="document.getElementById('file-name').innerText = this.files[0].name; document.getElementById('file-name').style.color = '#8b5cf6';">
                 </div>
 
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-title">Videos Generated</div>
-                        <div class="stat-value" id="dashTotalVideos">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-title">Plan Status</div>
-                        <div class="stat-value" style="color: var(--success);">Unlimited</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-title">System Health</div>
-                        <div class="stat-value" style="color: #60a5fa;">100% Online</div>
-                    </div>
+                <div class="form-group">
+                    <label>2. Project Title</label>
+                    <input type="text" id="title" placeholder="e.g., The Cosmos Explained">
                 </div>
 
-                <h2 style="font-size: 20px; margin-bottom: 20px;">Recent Projects</h2>
-                <div class="video-grid" id="recentVideosGrid">
-                    <p style="color: var(--text-muted);">No recent projects found.</p>
+                <div class="form-group">
+                    <label>3. Custom Keywords (Mandatory)</label>
+                    <input type="text" id="customKeywords" placeholder="e.g., galaxies, planets, stars">
+                </div>
+
+                <div class="form-group">
+                    <label>4. Video Format</label>
+                    <select id="format">
+                        <option value="16:9">Horizontal (16:9) - YouTube</option>
+                        <option value="9:16">Vertical (9:16) - Shorts/Reels</option>
+                    </select>
+                </div>
+
+                <button class="btn-generate" onclick="generateVideo()"><i class="fas fa-wand-magic-sparkles"></i> Generate Masterpiece</button>
+            </div>
+
+            <!-- PROGRESS SECTION -->
+            <div id="progress-section">
+                <div class="step-tracker">
+                    <div class="step" id="step-1"><div class="step-circle"><i class="fas fa-check"></i></div><div class="step-label">Preparing audio</div></div>
+                    <div class="step" id="step-2"><div class="step-circle">2</div><div class="step-label">Transcribing</div></div>
+                    <div class="step" id="step-3"><div class="step-circle">3</div><div class="step-label">Keywords</div></div>
+                    <div class="step" id="step-4"><div class="step-circle">4</div><div class="step-label">Finding visuals</div></div>
+                    <div class="step" id="step-5"><div class="step-circle">5</div><div class="step-label">Rendering video</div></div>
+                    <div class="step" id="step-6"><div class="step-circle">6</div><div class="step-label">Combining vid</div></div>
+                </div>
+
+                <div class="scene-list" id="scene-container"></div>
+
+                <div class="bottom-progress">
+                    <div class="bp-header">
+                        <span id="bp-status-text">Initializing Engine...</span>
+                        <span id="bp-percent">0%</span>
+                    </div>
+                    <div class="bp-bar-bg"><div class="bp-bar-fill" id="bp-fill"></div></div>
+                </div>
+
+                <div id="final-download"></div>
+            </div>
+
+            <!-- UPGRADE / PRICING SECTION -->
+            <div id="upgrade-section">
+                <h2 style="margin-top: 0; color: #fff; text-align: center;">Upgrade Your Workspace</h2>
+                <p style="color: var(--text-muted); text-align: center; margin-bottom: 40px;">Select a premium plan to increase your daily video generation limit.</p>
+                
+                <div class="pricing-grid">
+                    <div class="pricing-card">
+                        <div class="plan-title">Starter Plan</div>
+                        <div class="plan-price">2 <span style="font-size: 16px; color: var(--text-muted); font-weight: normal;">Videos/day</span></div>
+                        <ul class="plan-features">
+                            <li><i class="fas fa-check-circle"></i> Basic AI Engine</li>
+                            <li><i class="fas fa-check-circle"></i> HD Export</li>
+                            <li><i class="fas fa-check-circle"></i> Standard Support</li>
+                        </ul>
+                        <a href="https://wa.me/9234455609708?text=Hi,%20I%20want%20to%20upgrade%20my%20account%20to%20the%20STARTER%20PLAN%20(2%20Videos/day)." target="_blank" class="btn-whatsapp"><i class="fab fa-whatsapp"></i> Buy via WhatsApp</a>
+                    </div>
+
+                    <div class="pricing-card popular">
+                        <div class="pricing-badge">MOST POPULAR</div>
+                        <div class="plan-title" style="color: var(--primary);">Pro Plan</div>
+                        <div class="plan-price">3 <span style="font-size: 16px; color: var(--text-muted); font-weight: normal;">Videos/day</span></div>
+                        <ul class="plan-features">
+                            <li><i class="fas fa-check-circle"></i> Advanced AI Processing</li>
+                            <li><i class="fas fa-check-circle"></i> Premium HD Stock</li>
+                            <li><i class="fas fa-check-circle"></i> Priority Support</li>
+                        </ul>
+                        <a href="https://wa.me/9234455609708?text=Hi,%20I%20want%20to%20upgrade%20my%20account%20to%20the%20PRO%20PLAN%20(3%20Videos/day)." target="_blank" class="btn-whatsapp"><i class="fab fa-whatsapp"></i> Buy via WhatsApp</a>
+                    </div>
+
+                    <div class="pricing-card">
+                        <div class="plan-title">Enterprise Plan</div>
+                        <div class="plan-price">5 <span style="font-size: 16px; color: var(--text-muted); font-weight: normal;">Videos/day</span></div>
+                        <ul class="plan-features">
+                            <li><i class="fas fa-check-circle"></i> Unlimited Keywords</li>
+                            <li><i class="fas fa-check-circle"></i> Ultra-Fast Rendering</li>
+                            <li><i class="fas fa-check-circle"></i> 24/7 VIP Support</li>
+                        </ul>
+                        <a href="https://wa.me/9234455609708?text=Hi,%20I%20want%20to%20upgrade%20my%20account%20to%20the%20ENTERPRISE%20PLAN%20(5%20Videos/day)." target="_blank" class="btn-whatsapp"><i class="fab fa-whatsapp"></i> Buy via WhatsApp</a>
+                    </div>
                 </div>
             </div>
 
-            <!-- 2. CREATE VIDEO SCREEN -->
-            <div id="create" class="screen">
-                <div class="creation-container">
-                    <form id="uploadForm" class="form-card">
-                        <h2 style="font-size: 24px; margin-bottom: 30px;">Upload & Generate</h2>
-                        
-                        <div class="input-group">
-                            <label class="input-label">Project Title</label>
-                            <input type="text" class="input-field" id="videoTopic" placeholder="e.g. History of Space Exploration" required>
-                        </div>
-
-                        <div class="input-group">
-                            <label class="input-label">Platform Format</label>
-                            <select class="input-field" id="videoFormat">
-                                <option value="16:9">YouTube Standard (16:9)</option>
-                                <option value="9:16">Shorts / Reels (9:16)</option>
-                            </select>
-                        </div>
-
-                        <div class="input-group">
-                            <label class="input-label">Exact Custom Keywords (Optional)</label>
-                            <textarea class="input-field" id="customKeywords" placeholder="e.g. astronaut walking on moon, galaxy stars, mars rover"></textarea>
-                        </div>
-
-                        <div class="input-group">
-                            <label class="input-label">Voiceover Audio</label>
-                            <input type="file" class="input-field" id="audiofile" accept="audio/*" required>
-                        </div>
-
-                        <button type="submit" class="btn-create-new" style="width: 100%; justify-content: center; padding: 18px;">Start Rendering 🚀</button>
-                    </form>
-
-                    <!-- LIVE TRACKER UI -->
-                    <div id="tracker" class="tracker-ui">
-                        <div class="stepper-container">
-                            <div class="stepper">
-                                <div class="step step-1"><div class="step-circle">1</div><div class="step-label">Audio Sync</div></div>
-                                <div class="step step-2"><div class="step-circle">2</div><div class="step-label">AI Scanning</div></div>
-                                <div class="step step-3"><div class="step-circle">3</div><div class="step-label">Keywords</div></div>
-                                <div class="step step-4"><div class="step-circle">4</div><div class="step-label">HD Visuals</div></div>
-                                <div class="step step-5"><div class="step-circle">5</div><div class="step-label">Rendering</div></div>
-                            </div>
-                            <div class="progress-bar-container">
-                                <div class="progress-fill" id="bpFill"></div>
-                            </div>
-                            <div class="status-text" id="bpStatusText">Initializing engine...</div>
-                        </div>
+            <!-- SETTINGS SECTION -->
+            <div id="settings-section">
+                <h2 style="margin-top: 0; color: #fff;"><i class="fas fa-cog" style="color: var(--primary);"></i> System Settings</h2>
+                <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 30px;">Your API configurations and account details.</p>
+                
+                <div class="form-group">
+                    <label>Google Gemini AI Key (Locked by Admin)</label>
+                    <div class="locked-input">
+                        <i class="fas fa-lock"></i>
+                        <input type="text" value="AQ.Ab8RN6JTsy_HtY8BdoRPSK-trHM0OKIf2C5wA7X1aYRU-HKLZA" readonly>
                     </div>
                 </div>
-            </div>
+                
+                <div class="form-group">
+                    <label>Pexels Stock Video API Key (Locked by Admin)</label>
+                    <div class="locked-input">
+                        <i class="fas fa-lock"></i>
+                        <input type="text" value="xVeI29teYIY9aqf0J8qyKOTsQiCaLm03SjuND5nZulXDS1cyMoUE4WQX" readonly>
+                    </div>
+                </div>
 
-            <!-- 3. LIBRARY SCREEN -->
-            <div id="library" class="screen">
-                <h1 style="margin-bottom: 30px;">All Generated Videos</h1>
-                <div class="video-grid" id="libraryVideosGrid"></div>
+                <div class="form-group">
+                    <label>Pixabay Stock Video API Key (Locked by Admin)</label>
+                    <div class="locked-input">
+                        <i class="fas fa-lock"></i>
+                        <input type="text" value="57509200-37e05488b33dedb0b6eee629a" readonly>
+                    </div>
+                </div>
             </div>
 
         </div>
     </div>
 
     <script>
-        // Load videos on startup for Dashboard stats
-        window.onload = () => { loadVideos(); };
+        let userPassword = "";
 
-        function switchTab(tabId, title) {
-            // UI Toggle
-            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-            document.querySelectorAll('.nav-item').forEach(l => l.classList.remove('active'));
-            document.getElementById(tabId).classList.add('active');
-            document.getElementById(`nav-${tabId}`).classList.add('active');
-            document.getElementById('pageTitle').innerText = title;
-
-            // Load data if needed
-            if (tabId === 'library' || tabId === 'dashboard') loadVideos();
-        }
-
-        async function loadVideos() {
-            try {
-                const res = await fetch('/api/videos');
-                const data = await res.json();
-                
-                // Update Dashboard Stat
-                document.getElementById('dashTotalVideos').innerText = data.videos ? data.videos.length : 0;
-
-                const makeCard = (vid) => `
-                    <div class="video-card">
-                        <video src="${vid.url}" controls></video>
-                        <div class="video-info">
-                            <div class="video-title">${vid.name}</div>
-                            <a href="${vid.url}" download class="download-btn">⬇ Download HD</a>
-                        </div>
-                    </div>
-                `;
-
-                if (data.videos && data.videos.length > 0) {
-                    document.getElementById('libraryVideosGrid').innerHTML = data.videos.map(makeCard).join('');
-                    // Show only top 3 on dashboard
-                    document.getElementById('recentVideosGrid').innerHTML = data.videos.slice(0, 3).map(makeCard).join('');
-                } else {
-                    document.getElementById('libraryVideosGrid').innerHTML = `<p style="color:var(--text-muted)">No videos in library.</p>`;
-                }
-            } catch (e) {}
-        }
-
-        let pollingInterval = null;
-
-        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            document.getElementById('uploadForm').style.display = 'none';
-            document.getElementById('tracker').style.display = 'block';
-
-            const formData = new FormData();
-            formData.append('title', document.getElementById('videoTopic').value);
-            formData.append('format', document.getElementById('videoFormat').value);
-            formData.append('customKeywords', document.getElementById('customKeywords').value);
-            formData.append('audiofile', document.getElementById('audiofile').files[0]);
-
-            try {
-                const response = await fetch('/generate-exact-video', { method: 'POST', body: formData });
-                const data = await response.json();
-                if(data.success) pollStatus(data.jobId);
-                else alert("Error: " + data.message);
-            } catch (err) { alert("Upload failed."); location.reload(); }
-        });
-
-        function updateStepperUI(progress) {
-            const steps = document.querySelectorAll('.step');
-            steps.forEach(s => { s.classList.remove('active'); s.classList.remove('completed'); });
-
-            let activeIndex = 0;
-            if(progress > 15) activeIndex = 1;
-            if(progress > 30) activeIndex = 2;
-            if(progress > 45) activeIndex = 3;
-            if(progress > 85) activeIndex = 4;
-
-            for(let i=0; i<steps.length; i++) {
-                if(i < activeIndex) steps[i].classList.add('completed');
-                else if(i === activeIndex) steps[i].classList.add('active');
+        // Tab Switching Logic
+        function switchTab(tab) {
+            document.getElementById('nav-create').classList.remove('active');
+            document.getElementById('nav-upgrade').classList.remove('active');
+            document.getElementById('nav-settings').classList.remove('active');
+            
+            document.getElementById('upload-section').style.display = 'none';
+            document.getElementById('progress-section').style.display = 'none';
+            document.getElementById('settings-section').style.display = 'none';
+            document.getElementById('upgrade-section').style.display = 'none';
+            
+            if(tab === 'create') {
+                document.getElementById('nav-create').classList.add('active');
+                document.getElementById('upload-section').style.display = 'block';
+            } else if (tab === 'settings') {
+                document.getElementById('nav-settings').classList.add('active');
+                document.getElementById('settings-section').style.display = 'block';
+            } else if (tab === 'upgrade') {
+                document.getElementById('nav-upgrade').classList.add('active');
+                document.getElementById('upgrade-section').style.display = 'block';
             }
         }
 
-        async function pollStatus(jobId) {
-            pollingInterval = setInterval(async () => {
+        async function login() {
+            const pwd = document.getElementById('password').value;
+            const msg = document.getElementById('login-msg');
+            if(!pwd) { msg.style.display="block"; msg.innerText = "Password required."; return; }
+
+            msg.style.display="block"; msg.style.color="#8b5cf6"; msg.innerText = "Authenticating...";
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: pwd })
+                });
+                const data = await res.json();
+
+                if(data.success) {
+                    userPassword = pwd;
+                    document.getElementById('login-screen').style.display = "none";
+                    document.getElementById('limit-text').innerText = `${data.used}/${data.limit} today`;
+                    document.getElementById('user-name').innerText = pwd;
+                    document.getElementById('user-initial').innerText = pwd.charAt(0).toUpperCase();
+                } else {
+                    msg.style.color = "#ef4444";
+                    msg.innerText = "❌ " + data.message;
+                }
+            } catch (err) {
+                msg.style.color = "#ef4444";
+                msg.innerText = "❌ Server error.";
+            }
+        }
+
+        async function generateVideo() {
+            const audio = document.getElementById('audiofile').files[0];
+            if(!audio) return alert("Upload an audio file!");
+
+            document.getElementById('upload-section').style.display = "none";
+            document.getElementById('progress-section').style.display = "block";
+            
+            const formData = new FormData();
+            formData.append("audiofile", audio);
+            formData.append("title", document.getElementById('title').value);
+            formData.append("format", document.getElementById('format').value);
+            formData.append("customKeywords", document.getElementById('customKeywords').value);
+            formData.append("password", userPassword);
+
+            try {
+                const res = await fetch('/generate-exact-video', { method: 'POST', body: formData });
+                const data = await res.json();
+
+                if(data.success) {
+                    document.getElementById('limit-text').innerText = `${data.used}/${data.limit} today`;
+                    checkStatus(data.jobId);
+                } else {
+                    alert("Error: " + data.message);
+                    location.reload();
+                }
+            } catch (err) {
+                alert("Network error!"); location.reload();
+            }
+        }
+
+        function updateSteps(progress) {
+            const steps = [
+                { id: 'step-1', min: 0 }, { id: 'step-2', min: 10 }, { id: 'step-3', min: 20 },
+                { id: 'step-4', min: 30 }, { id: 'step-5', min: 60 }, { id: 'step-6', min: 85 }
+            ];
+
+            steps.forEach((step, index) => {
+                const el = document.getElementById(step.id);
+                if (progress >= step.min) {
+                    el.classList.add('active');
+                    if (progress > (steps[index+1]?.min || 95)) {
+                        el.classList.add('done');
+                        el.querySelector('.step-circle').innerHTML = '<i class="fas fa-check"></i>';
+                    }
+                }
+            });
+
+            const sceneContainer = document.getElementById('scene-container');
+            if (progress === 30 && sceneContainer.children.length === 0) {
+                sceneContainer.innerHTML = `
+                    <div class="scene-card">
+                        <div class="scene-time">0:00 - 0:05 <span style="color:#6b7280; font-size:12px; margin-left:5px;">(5s)</span></div>
+                        <div class="scene-keyword">KEYWORDS: ${document.getElementById('customKeywords').value.split(',')[0] || 'CINEMATIC'}</div>
+                        <div class="scene-visual">
+                            <div class="source-tag"><i class="fas fa-p"></i> Pexels <br> <span style="font-weight:normal; opacity:0.8"><i class="far fa-check-circle"></i> Visual Found</span></div>
+                            <div class="visual-img" style="background-image: url('https://images.pexels.com/photos/1252890/pexels-photo-1252890.jpeg?auto=compress&cs=tinysrgb&w=300');"></div>
+                        </div>
+                    </div>
+                `;
+            } else if (progress === 50 && sceneContainer.children.length === 1) {
+                sceneContainer.innerHTML += `
+                    <div class="scene-card">
+                        <div class="scene-time">0:05 - 0:10 <span style="color:#6b7280; font-size:12px; margin-left:5px;">(5s)</span></div>
+                        <div class="scene-keyword">KEYWORDS: ${document.getElementById('customKeywords').value.split(',')[1] || 'HD VIDEO'}</div>
+                        <div class="scene-visual">
+                            <div class="source-tag"><i class="fas fa-p"></i> Pixabay <br> <span style="font-weight:normal; opacity:0.8"><i class="far fa-check-circle"></i> Visual Found</span></div>
+                            <div class="visual-img" style="background-image: url('https://images.pexels.com/photos/281260/pexels-photo-281260.jpeg?auto=compress&cs=tinysrgb&w=300');"></div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        async function checkStatus(jobId) {
+            const interval = setInterval(async () => {
                 const res = await fetch(`/api/status/${jobId}`);
                 const data = await res.json();
-                
-                if(data.success) {
-                    document.getElementById('bpStatusText').innerText = `${data.progress}% - ${data.status}`;
-                    document.getElementById('bpFill').style.width = `${data.progress}%`;
-                    updateStepperUI(data.progress);
 
-                    if(data.progress === 100 || data.videoUrl) {
-                        clearInterval(pollingInterval);
-                        setTimeout(() => {
-                            alert("✅ Video Successfully Generated!");
-                            document.getElementById('tracker').style.display = 'none';
-                            document.getElementById('uploadForm').style.display = 'block';
-                            document.getElementById('uploadForm').reset();
-                            document.getElementById('nav-library').click(); // Auto switch to library
-                        }, 1000);
-                    } else if(data.status.includes('Failed')) {
-                        clearInterval(pollingInterval);
-                        alert("❌ Error: " + data.status);
-                        location.reload();
+                if(data.success) {
+                    const progress = data.progress;
+                    document.getElementById('bp-status-text').innerText = data.status;
+                    document.getElementById('bp-percent').innerText = progress + "%";
+                    document.getElementById('bp-fill').style.width = progress + "%";
+                    
+                    updateSteps(progress);
+
+                    if(progress === 100) {
+                        clearInterval(interval);
+                        document.getElementById('bp-status-text').innerText = "✅ Video Mastered Successfully!";
+                        document.getElementById('bp-fill').style.background = "#10b981";
+                        document.getElementById('step-6').classList.add('done');
+                        document.getElementById('step-6').querySelector('.step-circle').innerHTML = '<i class="fas fa-check"></i>';
+                        
+                        document.getElementById('final-download').style.display = "block";
+                        document.getElementById('final-download').innerHTML = `
+                            <a href="${data.videoUrl}" target="_blank" style="text-decoration:none;">
+                                <button class="btn-generate" style="background: #10b981; width:auto; padding: 12px 30px;">
+                                    <i class="fas fa-download"></i> Download Final Video
+                                </button>
+                            </a>`;
+                    } else if (data.status.includes("Failed")) {
+                        clearInterval(interval);
+                        document.getElementById('bp-status-text').innerText = "❌ Processing Failed";
+                        document.getElementById('bp-fill').style.background = "#ef4444";
                     }
                 }
             }, 3000);
