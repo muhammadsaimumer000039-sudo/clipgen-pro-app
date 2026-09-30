@@ -12,7 +12,6 @@
 
         body { font-family: 'Inter', sans-serif; background: var(--bg-dark); color: var(--text-main); margin: 0; padding: 0; display: flex; height: 100vh; overflow: hidden; }
         
-        /* LOGIN SCREEN - ALWAYS ON TOP UNTIL LOGGED IN */
         #login-screen { position: fixed; inset: 0; background: var(--bg-dark); display: flex; justify-content: center; align-items: center; z-index: 9999; }
         .login-box { background: var(--bg-panel); padding: 40px; border-radius: 12px; width: 400px; text-align: center; border: 1px solid #374151; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8); }
         .login-box h2 { color: var(--primary); font-size: 24px; margin-bottom: 20px; }
@@ -21,7 +20,6 @@
         .login-box button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; }
         .login-box button:hover { background: var(--primary-hover); }
 
-        /* APP CONTAINER (HIDDEN UNTIL LOGIN) */
         #app-container { display: none; width: 100%; height: 100%; display: none; }
 
         .sidebar { width: 260px; background: var(--bg-panel); border-right: 1px solid #1f2937; display: flex; flex-direction: column; padding: 20px 0; }
@@ -59,14 +57,6 @@
         .step-label { font-size: 11px; color: var(--text-muted); text-align: center; }
         .step.active .step-label { color: var(--primary); font-weight: 600; }
 
-        .scene-list { display: flex; flex-direction: column; gap: 15px; margin-bottom: 30px; }
-        .scene-card { background: var(--bg-panel); border: 1px solid #1f2937; border-radius: 12px; padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; }
-        .scene-time { color: var(--text-main); font-weight: 500; width: 120px; }
-        .scene-keyword { color: var(--text-muted); font-size: 13px; flex: 1; text-align: center; text-transform: uppercase; letter-spacing: 1px; }
-        .scene-visual { display: flex; align-items: center; gap: 15px; }
-        .visual-img { width: 120px; height: 68px; background: #374151; border-radius: 6px; background-size: cover; background-position: center; }
-        .source-tag { background: rgba(16, 185, 129, 0.1); color: var(--success); padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; border: 1px solid rgba(16, 185, 129, 0.3); display: flex; align-items: center; gap: 5px; }
-
         .bottom-progress { background: var(--bg-panel); padding: 20px; border-radius: 12px; border: 1px solid #1f2937; }
         .bp-header { display: flex; justify-content: space-between; margin-bottom: 10px; color: var(--text-muted); font-size: 14px; }
         .bp-bar-bg { height: 8px; background: #374151; border-radius: 4px; overflow: hidden; }
@@ -93,7 +83,6 @@
 </head>
 <body>
 
-    <!-- LOGIN SCREEN (BLOCKS EVERYTHING UNTIL LOGGED IN) -->
     <div id="login-screen">
         <div class="login-box">
             <h2>ClipGen Pro</h2>
@@ -105,9 +94,7 @@
         </div>
     </div>
 
-    <!-- MAIN APP CONTAINER (HIDDEN INITIALLY) -->
     <div id="app-container">
-        <!-- SIDEBAR -->
         <div class="sidebar">
             <div class="logo-area">
                 <div class="logo-icon"><i class="fas fa-play" style="color:white; font-size:14px;"></i></div>
@@ -138,7 +125,6 @@
             </div>
         </div>
 
-        <!-- MAIN CONTENT -->
         <div class="main-content">
             <div class="header">
                 <div style="font-size: 12px; color: var(--text-muted);"><i class="fas fa-magic"></i> Made by ClipGen AI</div>
@@ -163,41 +149,33 @@
                     </div>
 
                     <div class="form-group">
-                        <label>2. Project Title</label>
-                        <input type="text" id="title" placeholder="e.g., The Cosmos Explained">
+                        <label>2. Project Title / Main Topic (AI uses this for exact context)</label>
+                        <input type="text" id="title" placeholder="e.g., Black Holes in Deep Space">
                     </div>
 
                     <div class="form-group">
-                        <label>3. Custom Keywords (Mandatory)</label>
-                        <input type="text" id="customKeywords" placeholder="e.g., galaxies, planets, stars">
-                    </div>
-
-                    <div class="form-group">
-                        <label>4. Video Format</label>
+                        <label>3. Video Format</label>
                         <select id="format">
                             <option value="16:9">Horizontal (16:9) - YouTube</option>
                             <option value="9:16">Vertical (9:16) - Shorts/Reels</option>
                         </select>
                     </div>
 
-                    <button class="btn-generate" onclick="generateVideo()"><i class="fas fa-wand-magic-sparkles"></i> Generate Masterpiece</button>
+                    <button class="btn-generate" onclick="generateVideo()"><i class="fas fa-wand-magic-sparkles"></i> Generate Smart Video</button>
                 </div>
 
                 <div id="progress-section">
                     <div class="step-tracker">
-                        <div class="step" id="step-1"><div class="step-circle"><i class="fas fa-check"></i></div><div class="step-label">Preparing audio</div></div>
-                        <div class="step" id="step-2"><div class="step-circle">2</div><div class="step-label">Transcribing</div></div>
-                        <div class="step" id="step-3"><div class="step-circle">3</div><div class="step-label">Keywords</div></div>
-                        <div class="step" id="step-4"><div class="step-circle">4</div><div class="step-label">Finding visuals</div></div>
-                        <div class="step" id="step-5"><div class="step-circle">5</div><div class="step-label">Rendering video</div></div>
-                        <div class="step" id="step-6"><div class="step-circle">6</div><div class="step-label">Combining vid</div></div>
+                        <div class="step" id="step-1"><div class="step-circle"><i class="fas fa-check"></i></div><div class="step-label">Audio Analysis</div></div>
+                        <div class="step" id="step-2"><div class="step-circle">2</div><div class="step-label">AI Noun Extraction</div></div>
+                        <div class="step" id="step-3"><div class="step-circle">3</div><div class="step-label">Stock Fetching</div></div>
+                        <div class="step" id="step-4"><div class="step-circle">4</div><div class="step-label">Smart Rendering</div></div>
+                        <div class="step" id="step-5"><div class="step-circle">5</div><div class="step-label">Master Editing</div></div>
                     </div>
-
-                    <div class="scene-list" id="scene-container"></div>
 
                     <div class="bottom-progress">
                         <div class="bp-header">
-                            <span id="bp-status-text">Initializing Engine...</span>
+                            <span id="bp-status-text">Initializing AI Engine...</span>
                             <span id="bp-percent">0%</span>
                         </div>
                         <div class="bp-bar-bg"><div class="bp-bar-fill" id="bp-fill"></div></div>
@@ -301,7 +279,6 @@
                     activeUsername = user;
                     activePassword = pwd;
                     
-                    // Hide login screen and display app container properly with flex layout
                     document.getElementById('login-screen').style.display = "none";
                     document.getElementById('app-container').style.display = "flex";
                     
@@ -327,9 +304,8 @@
             
             const formData = new FormData();
             formData.append("audiofile", audio);
-            formData.append("title", document.getElementById('title').value);
+            formData.append("title", document.getElementById('title').value || "video");
             formData.append("format", document.getElementById('format').value);
-            formData.append("customKeywords", document.getElementById('customKeywords').value);
             formData.append("username", activeUsername);
             formData.append("password", activePassword);
 
@@ -351,17 +327,18 @@
 
         function updateSteps(progress) {
             const steps = [
-                { id: 'step-1', min: 0 }, { id: 'step-2', min: 10 }, { id: 'step-3', min: 20 },
-                { id: 'step-4', min: 30 }, { id: 'step-5', min: 60 }, { id: 'step-6', min: 85 }
+                { id: 'step-1', min: 0 }, { id: 'step-2', min: 20 }, { id: 'step-3', min: 45 },
+                { id: 'step-4', min: 70 }, { id: 'step-5', min: 90 }
             ];
 
             steps.forEach((step, index) => {
                 const el = document.getElementById(step.id);
-                if (progress >= step.min) {
+                if (el && progress >= step.min) {
                     el.classList.add('active');
                     if (progress > (steps[index+1]?.min || 95)) {
                         el.classList.add('done');
-                        el.querySelector('.step-circle').innerHTML = '<i class="fas fa-check"></i>';
+                        const circle = el.querySelector('.step-circle');
+                        if(circle) circle.innerHTML = '<i class="fas fa-check"></i>';
                     }
                 }
             });
@@ -382,10 +359,8 @@
 
                     if(progress === 100) {
                         clearInterval(interval);
-                        document.getElementById('bp-status-text').innerText = "✅ Video Mastered Successfully!";
+                        document.getElementById('bp-status-text').innerText = "✅ Smart Video Mastered Successfully!";
                         document.getElementById('bp-fill').style.background = "#10b981";
-                        document.getElementById('step-6').classList.add('done');
-                        document.getElementById('step-6').querySelector('.step-circle').innerHTML = '<i class="fas fa-check"></i>';
                         
                         document.getElementById('final-download').style.display = "block";
                         document.getElementById('final-download').innerHTML = `
