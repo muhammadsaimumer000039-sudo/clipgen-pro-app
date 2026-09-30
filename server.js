@@ -111,14 +111,17 @@ async function downloadVideoToDisk(url, outputPath) {
     }
 }
 
+// Multi-Source HD Video Fetcher (Pexels + Pixabay + Coverr/Open Source fallback search)
 async function fetchHDStockVideos(query, format, usedUrlsSet) {
     let urls = [];
     const q = encodeURIComponent(query);
     const orientation = format === "9:16" ? "portrait" : "landscape";
 
+    // 1. Pexels Search
     try {
-        const pRes = await fetch(`https://api.pexels.com/videos/search?query=${q}&per_page=15&orientation=${orientation}`, { headers: { Authorization: PEXELS_API_KEY } });
-        const data = await pRes.json();
+        const pRes = `https://api.pexels.com/videos/search?query=${q}&per_page=30&orientation=${orientation}`;
+        const pFetch = await fetch(pRes, { headers: { Authorization: PEXELS_API_KEY } });
+        const data = await pFetch.json();
         if (data.videos) {
             data.videos.forEach(v => {
                 if (v.video_files && v.video_files.length > 0) {
@@ -133,9 +136,11 @@ async function fetchHDStockVideos(query, format, usedUrlsSet) {
         }
     } catch (e) {}
 
+    // 2. Pixabay Search
     try {
-        const pixRes = await fetch(`https://pixabay.com/api/videos/?key=${PIXABAY_API_KEY}&q=${q}&per_page=15`);
-        const data = await pixRes.json();
+        const pixRes = `https://pixabay.com/api/videos/?key=${PIXABAY_API_KEY}&q=${q}&per_page=30`;
+        const pixFetch = await fetch(pixRes);
+        const data = await pixFetch.json();
         if (data.hits) {
             data.hits.forEach(v => {
                 if (v.videos && v.videos.large) {
@@ -148,10 +153,27 @@ async function fetchHDStockVideos(query, format, usedUrlsSet) {
         }
     } catch (e) {}
 
+    // 3. Wikimedia Commons Video Search (Extra powerful source for exact academic/scientific/niche topics)
+    try {
+        const wikiRes = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${q}&gsrnamespace=6&gsrlimit=10&prop=imageinfo&iiprop=url&format=json`;
+        const wikiFetch = await fetch(wikiRes);
+        const wikiData = await wikiFetch.json();
+        if (wikiData.query && wikiData.query.pages) {
+            Object.values(wikiData.query.pages).forEach(page => {
+                if (page.imageinfo && page.imageinfo[0] && page.imageinfo[0].url) {
+                    const url = page.imageinfo[0].url;
+                    if (url.endsWith('.webm') || url.endsWith('.mp4')) {
+                        if (!usedUrlsSet.has(url)) urls.push(url);
+                    }
+                }
+            });
+        }
+    } catch (e) {}
+
     return urls;
 }
 
-// BULLETPROOF FULL-DURATION QUEUE PROCESSOR
+// MULTI-SOURCE EXACT TOPIC WORKER
 async function processQueue() {
     if (isProcessingQueue || videoQueue.length === 0) return;
     isProcessingQueue = true;
@@ -165,20 +187,22 @@ async function processQueue() {
         
         const totalDuration = await getAudioDuration(audioPath);
         activeJobs[jobId].progress = 20;
-        activeJobs[jobId].status = `Audio duration: ${Math.floor(totalDuration)}s. Planning scenes...`;
+        activeJobs[jobId].status = `Audio duration: ${Math.floor(totalDuration)}s. Searching multi-source databases for exact topic...`;
+
+        let cleanTitle = title ? title.trim() : "cinematic";
+        let titleWords = cleanTitle.split(' ').filter(w => w.length > 2);
+        if (titleWords.length === 0) titleWords = [cleanTitle];
 
         let scenes = [];
-        let baseKeywords = title ? title.split(' ').filter(w => w.length > 2) : ["cinematic", "background"];
-        if (baseKeywords.length === 0) baseKeywords = ["cinematic", "abstract", "nature"];
-
         let keywordIdx = 0;
-        for (let t = 0; t < totalDuration; t += 6.0) {
-            let endT = Math.min(totalDuration, t + 6.0);
-            let kw = baseKeywords[keywordIdx % baseKeywords.length];
+        
+        for (let t = 0; t < totalDuration; t += 5.0) {
+            let endT = Math.min(totalDuration, t + 5.0);
+            let primaryKeyword = titleWords[keywordIdx % titleWords.length];
             scenes.push({
                 start: t,
                 end: endT,
-                searchQueries: [kw, title || "cinematic"]
+                searchQueries: [primaryKeyword, cleanTitle]
             });
             keywordIdx++;
         }
@@ -198,15 +222,22 @@ async function processQueue() {
             for (let q of scene.searchQueries) {
                 const freshUrls = await fetchHDStockVideos(q, format, globalUsedUrls);
                 urlsForScene.push(...freshUrls);
-                if (urlsForScene.length > 0) break;
+                if (urlsForScene.length >= 3) break;
             }
 
+            // Ultimate fallback if multi-source search returns nothing for this specific scene
             if (urlsForScene.length === 0) {
-                urlsForScene.push("https://images.pexels.com/videos/854132/free-video-854132.mp4");
+                const fallbackUrls = await fetchHDStockVideos(cleanTitle, format, new Set());
+                if (fallbackUrls.length > 0) {
+                    urlsForScene.push(fallbackUrls[i % fallbackUrls.length]);
+                } else {
+                    urlsForScene.push("https://images.pexels.com/videos/854132/free-video-854132.mp4");
+                }
             }
 
-            const chosenUrl = urlsForScene[0]; 
+            const chosenUrl = urlsForScene[Math.floor(Math.random() * urlsForScene.length)]; 
             globalUsedUrls.add(chosenUrl);
+
             const rawClip = path.join(TEMP_DIR, `raw-${jobId}-${i}.mp4`);
             const processedClip = path.join(TEMP_DIR, `proc-${jobId}-${i}.mp4`);
 
@@ -220,11 +251,10 @@ async function processQueue() {
                             .outputOptions(["-c:v libx264", "-preset ultrafast", "-pix_fmt yuv420p", "-an"])
                             .on("end", () => { isDone = true; resolve(); }).on("error", () => { isDone = true; resolve(); });
                         cmd.save(processedClip);
-                        setTimeout(() => { if (!isDone) { try { cmd.kill('SIGKILL'); } catch(e){} resolve(); } }, 25000); 
+                        setTimeout(() => { if (!isDone) { try { cmd.kill('SIGKILL'); } catch(e){} resolve(); } }, 20000); 
                     });
                     if (fs.existsSync(processedClip)) {
                         processedClips.push(processedClip);
-                        // Ensure absolute Linux-safe path with forward slashes
                         const safePath = processedClip.replace(/\\/g, "/");
                         concatLines.push(`file '${safePath}'`);
                     }
@@ -234,15 +264,13 @@ async function processQueue() {
             
             let prog = 30 + Math.floor(((i + 1) / scenes.length) * 55);
             activeJobs[jobId].progress = Math.min(85, prog);
-            activeJobs[jobId].status = `Rendering clip ${i + 1} of ${scenes.length} (${Math.round(((i+1)/scenes.length)*100)}%)...`;
+            activeJobs[jobId].status = `Rendering exact topic scene ${i + 1} of ${scenes.length} (${Math.round(((i+1)/scenes.length)*100)}%)...`;
         }
 
         if (processedClips.length === 0) throw new Error("Processing failed: No clips could be rendered.");
 
         activeJobs[jobId].progress = 88;
-        activeJobs[jobId].status = "Compiling full video timeline...";
-        
-        // Write concat file with explicit Linux \n line endings
+        activeJobs[jobId].status = "Compiling exact topic video timeline...";
         fs.writeFileSync(concatTxtPath, concatLines.join("\n"), "utf8");
 
         const silentVideo = path.join(TEMP_DIR, `silent-${jobId}.mp4`);
@@ -259,9 +287,8 @@ async function processQueue() {
                 .save(silentVideo);
         });
 
-        // Verify silent video exists and has size
         if (!fs.existsSync(silentVideo) || fs.statSync(silentVideo).size < 1000) {
-            throw new Error("Timeline compilation failed (silent video empty).");
+            throw new Error("Timeline compilation failed.");
         }
 
         activeJobs[jobId].progress = 95;
@@ -353,5 +380,5 @@ app.get("/api/status/:jobId", (req, res) => {
     res.json({ success: true, progress: job.progress, status: job.status, videoUrl: job.videoUrl });
 });
 
-const server = app.listen(PORT, "0.0.0.0", () => console.log(`🚀 STABLE CONCAT SERVER RUNNING ON PORT ${PORT}`));
+const server = app.listen(PORT, "0.0.0.0", () => console.log(`🚀 MULTI-SOURCE EXACT TOPIC SERVER RUNNING ON PORT ${PORT}`));
 server.setTimeout(900000);
