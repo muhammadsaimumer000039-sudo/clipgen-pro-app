@@ -14,7 +14,7 @@ const app = express();
 const PORT = process.env.PORT || 8080; 
 
 ffmpeg.setFfmpegPath(ffmpegStatic);
-ffmpeg.setFfprobePath(ffprobeStatic.path); // <-- Yeh zaroori line miss ho gayi thi!
+ffmpeg.setFfprobePath(ffprobeStatic.path || ffprobeStatic);
 
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY || "xVeI29teYIY9aqf0J8qyKOTsQiCaLm03SjuND5nZulXDS1cyMoUE4WQX";
 const PIXABAY_API_KEY = process.env.PIXABAY_API_KEY || "57509200-37e05488b33dedb0b6eee629a";
@@ -75,16 +75,16 @@ function getAudioDuration(file) {
     return new Promise((resolve) => {
         ffmpeg.ffprobe(file, (err, metadata) => {
             if (err || !metadata || !metadata.format || !metadata.format.duration) {
-                // Agar ffprobe fail ho toh file size se duration estimate kar lo (approx 1MB = 1 minute for audio)
                 try {
                     const stats = fs.statSync(file);
-                    const estimatedSecs = Math.max(60, Math.floor(stats.size / 16000));
+                    // Estimate duration based on file size (Fallback)
+                    const estimatedSecs = Math.max(120, Math.floor(stats.size / 16000));
                     resolve(estimatedSecs);
                 } catch(e) {
-                    resolve(210); // Default to 3.5 mins if everything fails
+                    resolve(210); // Default to 3.5 mins
                 }
             } else {
-                resolve(metadata.format.duration);
+                resolve(parseFloat(metadata.format.duration));
             }
         });
     });
@@ -152,7 +152,7 @@ async function fetchHDStockVideos(query, format, usedUrlsSet) {
     return urls;
 }
 
-// BULLETPROOF FULL-DURATION QUEUE PROCESSOR
+// FULL DURATION WORKER QUEUE
 async function processQueue() {
     if (isProcessingQueue || videoQueue.length === 0) return;
     isProcessingQueue = true;
@@ -162,10 +162,13 @@ async function processQueue() {
 
     try {
         activeJobs[jobId].status = "Reading exact audio duration...";
+        activeJobs[jobId].progress = 10;
+        
         const totalDuration = await getAudioDuration(audioPath);
-        activeJobs[jobId].progress = 15;
+        activeJobs[jobId].progress = 20;
+        activeJobs[jobId].status = `Audio duration detected: ${Math.floor(totalDuration)}s. Planning scenes...`;
 
-        // Generate full duration scenes (every 6 seconds a new matching clip)
+        // Generate full scenes every 6 seconds from 0 to totalDuration
         let scenes = [];
         let baseKeywords = title ? title.split(' ').filter(w => w.length > 2) : ["cinematic", "background"];
         if (baseKeywords.length === 0) baseKeywords = ["cinematic", "abstract", "nature"];
@@ -183,7 +186,6 @@ async function processQueue() {
         }
 
         activeJobs[jobId].progress = 30;
-        activeJobs[jobId].status = `Rendering ${scenes.length} professional clips for full audio...`;
         const globalUsedUrls = new Set();
         const { width, height } = format === "9:16" ? { width: 1080, height: 1920 } : { width: 1920, height: 1080 };
         const processedClips = [];
@@ -232,13 +234,13 @@ async function processQueue() {
             
             let prog = 30 + Math.floor(((i + 1) / scenes.length) * 55);
             activeJobs[jobId].progress = Math.min(85, prog);
-            activeJobs[jobId].status = `Rendering clip ${i + 1}/${scenes.length} (${Math.round((i/scenes.length)*100)}%)...`;
+            activeJobs[jobId].status = `Rendering clip ${i + 1} of ${scenes.length} (${Math.round(((i+1)/scenes.length)*100)}%)...`;
         }
 
-        if (processedClips.length === 0) throw new Error("Processing failed.");
+        if (processedClips.length === 0) throw new Error("Processing failed: No clips could be rendered.");
 
         activeJobs[jobId].progress = 88;
-        activeJobs[jobId].status = "Compiling full timeline...";
+        activeJobs[jobId].status = "Compiling full video timeline...";
         fs.writeFileSync(concatTxtPath, concatContent);
 
         const silentVideo = path.join(TEMP_DIR, `silent-${jobId}.mp4`);
@@ -252,7 +254,7 @@ async function processQueue() {
         });
 
         activeJobs[jobId].progress = 95;
-        activeJobs[jobId].status = "Adding voiceover audio...";
+        activeJobs[jobId].status = "Merging full audio voiceover...";
 
         await new Promise((resolve, reject) => {
             ffmpeg().input(silentVideo).input(audioPath)
@@ -301,7 +303,7 @@ app.post("/generate-exact-video", (req, res) => {
         
         activeJobs[jobId] = { 
             progress: 5, 
-            status: qPos > 0 ? `In Queue (Position: ${qPos})` : "Starting...", 
+            status: qPos > 0 ? `In Queue (Position: ${qPos})` : "Initializing...", 
             videoUrl: null 
         };
 
@@ -324,5 +326,5 @@ app.get("/api/status/:jobId", (req, res) => {
     res.json({ success: true, progress: job.progress, status: job.status, videoUrl: job.videoUrl });
 });
 
-const server = app.listen(PORT, "0.0.0.0", () => console.log(`🚀 STABLE FULL-DURATION SERVER RUNNING ON PORT ${PORT}`));
+const server = app.listen(PORT, "0.0.0.0", () => console.log(`🚀 STABLE SERVER RUNNING ON PORT ${PORT}`));
 server.setTimeout(900000);
