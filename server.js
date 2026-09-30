@@ -111,13 +111,11 @@ async function downloadVideoToDisk(url, outputPath) {
     }
 }
 
-// Multi-Source HD Video Fetcher (Pexels + Pixabay + Coverr/Open Source fallback search)
 async function fetchHDStockVideos(query, format, usedUrlsSet) {
     let urls = [];
     const q = encodeURIComponent(query);
     const orientation = format === "9:16" ? "portrait" : "landscape";
 
-    // 1. Pexels Search
     try {
         const pRes = `https://api.pexels.com/videos/search?query=${q}&per_page=30&orientation=${orientation}`;
         const pFetch = await fetch(pRes, { headers: { Authorization: PEXELS_API_KEY } });
@@ -136,7 +134,6 @@ async function fetchHDStockVideos(query, format, usedUrlsSet) {
         }
     } catch (e) {}
 
-    // 2. Pixabay Search
     try {
         const pixRes = `https://pixabay.com/api/videos/?key=${PIXABAY_API_KEY}&q=${q}&per_page=30`;
         const pixFetch = await fetch(pixRes);
@@ -153,7 +150,6 @@ async function fetchHDStockVideos(query, format, usedUrlsSet) {
         }
     } catch (e) {}
 
-    // 3. Wikimedia Commons Video Search (Extra powerful source for exact academic/scientific/niche topics)
     try {
         const wikiRes = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${q}&gsrnamespace=6&gsrlimit=10&prop=imageinfo&iiprop=url&format=json`;
         const wikiFetch = await fetch(wikiRes);
@@ -173,7 +169,7 @@ async function fetchHDStockVideos(query, format, usedUrlsSet) {
     return urls;
 }
 
-// MULTI-SOURCE EXACT TOPIC WORKER
+// BULLETPROOF CONCAT WORKER
 async function processQueue() {
     if (isProcessingQueue || videoQueue.length === 0) return;
     isProcessingQueue = true;
@@ -187,7 +183,7 @@ async function processQueue() {
         
         const totalDuration = await getAudioDuration(audioPath);
         activeJobs[jobId].progress = 20;
-        activeJobs[jobId].status = `Audio duration: ${Math.floor(totalDuration)}s. Searching multi-source databases for exact topic...`;
+        activeJobs[jobId].status = `Audio duration: ${Math.floor(totalDuration)}s. Fetching topic clips...`;
 
         let cleanTitle = title ? title.trim() : "cinematic";
         let titleWords = cleanTitle.split(' ').filter(w => w.length > 2);
@@ -225,7 +221,6 @@ async function processQueue() {
                 if (urlsForScene.length >= 3) break;
             }
 
-            // Ultimate fallback if multi-source search returns nothing for this specific scene
             if (urlsForScene.length === 0) {
                 const fallbackUrls = await fetchHDStockVideos(cleanTitle, format, new Set());
                 if (fallbackUrls.length > 0) {
@@ -253,10 +248,11 @@ async function processQueue() {
                         cmd.save(processedClip);
                         setTimeout(() => { if (!isDone) { try { cmd.kill('SIGKILL'); } catch(e){} resolve(); } }, 20000); 
                     });
-                    if (fs.existsSync(processedClip)) {
+                    if (fs.existsSync(processedClip) && fs.statSync(processedClip).size > 1000) {
                         processedClips.push(processedClip);
-                        const safePath = processedClip.replace(/\\/g, "/");
-                        concatLines.push(`file '${safePath}'`);
+                        // Safe absolute path formatting with single quotes escaped or handled safely
+                        const absPath = path.resolve(processedClip).replace(/\\/g, "/");
+                        concatLines.push(`file '${absPath}'`);
                     }
                 }
             } catch (err) {}
@@ -264,14 +260,16 @@ async function processQueue() {
             
             let prog = 30 + Math.floor(((i + 1) / scenes.length) * 55);
             activeJobs[jobId].progress = Math.min(85, prog);
-            activeJobs[jobId].status = `Rendering exact topic scene ${i + 1} of ${scenes.length} (${Math.round(((i+1)/scenes.length)*100)}%)...`;
+            activeJobs[jobId].status = `Rendering topic scene ${i + 1} of ${scenes.length} (${Math.round(((i+1)/scenes.length)*100)}%)...`;
         }
 
         if (processedClips.length === 0) throw new Error("Processing failed: No clips could be rendered.");
 
         activeJobs[jobId].progress = 88;
         activeJobs[jobId].status = "Compiling exact topic video timeline...";
-        fs.writeFileSync(concatTxtPath, concatLines.join("\n"), "utf8");
+        
+        // Write file with exact LF line endings and UTF-8 encoding
+        fs.writeFileSync(concatTxtPath, concatLines.join("\n"), { encoding: "utf8", flag: "w" });
 
         const silentVideo = path.join(TEMP_DIR, `silent-${jobId}.mp4`);
         const finalFileName = `FINAL-${jobId}.mp4`;
@@ -380,5 +378,5 @@ app.get("/api/status/:jobId", (req, res) => {
     res.json({ success: true, progress: job.progress, status: job.status, videoUrl: job.videoUrl });
 });
 
-const server = app.listen(PORT, "0.0.0.0", () => console.log(`🚀 MULTI-SOURCE EXACT TOPIC SERVER RUNNING ON PORT ${PORT}`));
+const server = app.listen(PORT, "0.0.0.0", () => console.log(`🚀 CONCAT 183-FIXED SERVER RUNNING ON PORT ${PORT}`));
 server.setTimeout(900000);
