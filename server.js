@@ -77,11 +77,10 @@ function getAudioDuration(file) {
             if (err || !metadata || !metadata.format || !metadata.format.duration) {
                 try {
                     const stats = fs.statSync(file);
-                    // Estimate duration based on file size (Fallback)
                     const estimatedSecs = Math.max(120, Math.floor(stats.size / 16000));
                     resolve(estimatedSecs);
                 } catch(e) {
-                    resolve(210); // Default to 3.5 mins
+                    resolve(210);
                 }
             } else {
                 resolve(parseFloat(metadata.format.duration));
@@ -152,7 +151,7 @@ async function fetchHDStockVideos(query, format, usedUrlsSet) {
     return urls;
 }
 
-// FULL DURATION WORKER QUEUE
+// BULLETPROOF FULL-DURATION QUEUE PROCESSOR
 async function processQueue() {
     if (isProcessingQueue || videoQueue.length === 0) return;
     isProcessingQueue = true;
@@ -166,9 +165,8 @@ async function processQueue() {
         
         const totalDuration = await getAudioDuration(audioPath);
         activeJobs[jobId].progress = 20;
-        activeJobs[jobId].status = `Audio duration detected: ${Math.floor(totalDuration)}s. Planning scenes...`;
+        activeJobs[jobId].status = `Audio duration: ${Math.floor(totalDuration)}s. Planning scenes...`;
 
-        // Generate full scenes every 6 seconds from 0 to totalDuration
         let scenes = [];
         let baseKeywords = title ? title.split(' ').filter(w => w.length > 2) : ["cinematic", "background"];
         if (baseKeywords.length === 0) baseKeywords = ["cinematic", "abstract", "nature"];
@@ -190,7 +188,7 @@ async function processQueue() {
         const { width, height } = format === "9:16" ? { width: 1080, height: 1920 } : { width: 1920, height: 1080 };
         const processedClips = [];
         const concatTxtPath = path.join(TEMP_DIR, `list-${jobId}.txt`);
-        let concatContent = "";
+        let concatLines = [];
 
         for (let i = 0; i < scenes.length; i++) {
             const scene = scenes[i];
@@ -226,7 +224,9 @@ async function processQueue() {
                     });
                     if (fs.existsSync(processedClip)) {
                         processedClips.push(processedClip);
-                        concatContent += `file '${processedClip.replace(/\\/g, "/")}'\n`;
+                        // Ensure absolute Linux-safe path with forward slashes
+                        const safePath = processedClip.replace(/\\/g, "/");
+                        concatLines.push(`file '${safePath}'`);
                     }
                 }
             } catch (err) {}
@@ -241,32 +241,59 @@ async function processQueue() {
 
         activeJobs[jobId].progress = 88;
         activeJobs[jobId].status = "Compiling full video timeline...";
-        fs.writeFileSync(concatTxtPath, concatContent);
+        
+        // Write concat file with explicit Linux \n line endings
+        fs.writeFileSync(concatTxtPath, concatLines.join("\n"), "utf8");
 
         const silentVideo = path.join(TEMP_DIR, `silent-${jobId}.mp4`);
         const finalFileName = `FINAL-${jobId}.mp4`;
         const finalFilePath = path.join(UPLOAD_DIR, finalFileName);
 
         await new Promise((resolve, reject) => {
-            ffmpeg().input(concatTxtPath).inputOptions(["-f concat", "-safe 0"])
+            ffmpeg()
+                .input(concatTxtPath)
+                .inputOptions(["-f concat", "-safe 0"])
                 .outputOptions(["-c:v libx264", "-preset ultrafast", "-pix_fmt yuv420p"])
-                .on("end", resolve).on("error", reject).save(silentVideo);
+                .on("end", resolve)
+                .on("error", (err) => reject(new Error("Concat failed: " + err.message)))
+                .save(silentVideo);
         });
+
+        // Verify silent video exists and has size
+        if (!fs.existsSync(silentVideo) || fs.statSync(silentVideo).size < 1000) {
+            throw new Error("Timeline compilation failed (silent video empty).");
+        }
 
         activeJobs[jobId].progress = 95;
         activeJobs[jobId].status = "Merging full audio voiceover...";
 
         await new Promise((resolve, reject) => {
-            ffmpeg().input(silentVideo).input(audioPath)
-                .outputOptions(["-map 0:v:0", "-map 1:a:0", "-c:v copy", "-c:a aac", "-b:a 192k", "-shortest", "-movflags +faststart"])
-                .on("end", resolve).on("error", reject).save(finalFilePath);
+            ffmpeg()
+                .input(silentVideo)
+                .input(audioPath)
+                .outputOptions([
+                    "-map 0:v:0", 
+                    "-map 1:a:0", 
+                    "-c:v copy", 
+                    "-c:a aac", 
+                    "-b:a 192k", 
+                    "-movflags +faststart"
+                ])
+                .on("end", resolve)
+                .on("error", (err) => reject(new Error("Audio merge failed: " + err.message)))
+                .save(finalFilePath);
         });
 
         activeJobs[jobId].progress = 100;
         activeJobs[jobId].status = "Ready!";
         activeJobs[jobId].videoUrl = `/uploads/${finalFileName}`;
 
-        try { fs.unlinkSync(concatTxtPath); fs.unlinkSync(silentVideo); processedClips.forEach(f => { if(fs.existsSync(f)) fs.unlinkSync(f) }); fs.unlinkSync(audioPath); } catch (e) {}
+        try { 
+            if (fs.existsSync(concatTxtPath)) fs.unlinkSync(concatTxtPath); 
+            if (fs.existsSync(silentVideo)) fs.unlinkSync(silentVideo); 
+            processedClips.forEach(f => { if(fs.existsSync(f)) fs.unlinkSync(f) }); 
+            if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath); 
+        } catch (e) {}
     } catch (error) {
         activeJobs[jobId].status = "Failed: " + error.message;
         try { if(fs.existsSync(audioPath)) fs.unlinkSync(audioPath); } catch(e){}
@@ -326,5 +353,5 @@ app.get("/api/status/:jobId", (req, res) => {
     res.json({ success: true, progress: job.progress, status: job.status, videoUrl: job.videoUrl });
 });
 
-const server = app.listen(PORT, "0.0.0.0", () => console.log(`🚀 STABLE SERVER RUNNING ON PORT ${PORT}`));
+const server = app.listen(PORT, "0.0.0.0", () => console.log(`🚀 STABLE CONCAT SERVER RUNNING ON PORT ${PORT}`));
 server.setTimeout(900000);
