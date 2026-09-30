@@ -310,7 +310,17 @@
             formData.append("password", activePassword);
 
             try {
-                const res = await fetch('/generate-exact-video', { method: 'POST', body: formData });
+                // Unlimited timeout for upload (15 minutes)
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 900000);
+
+                const res = await fetch('/generate-exact-video', { 
+                    method: 'POST', 
+                    body: formData,
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                
                 const data = await res.json();
 
                 if(data.success) {
@@ -321,7 +331,8 @@
                     location.reload();
                 }
             } catch (err) {
-                alert("Network error!"); location.reload();
+                alert("Upload failed or network timeout. Please check your internet connection and try again."); 
+                location.reload();
             }
         }
 
@@ -346,35 +357,37 @@
 
         async function checkStatus(jobId) {
             const interval = setInterval(async () => {
-                const res = await fetch(`/api/status/${jobId}`);
-                const data = await res.json();
+                try {
+                    const res = await fetch(`/api/status/${jobId}`);
+                    const data = await res.json();
 
-                if(data.success) {
-                    const progress = data.progress;
-                    document.getElementById('bp-status-text').innerText = data.status;
-                    document.getElementById('bp-percent').innerText = progress + "%";
-                    document.getElementById('bp-fill').style.width = progress + "%";
-                    
-                    updateSteps(progress);
-
-                    if(progress === 100) {
-                        clearInterval(interval);
-                        document.getElementById('bp-status-text').innerText = "✅ Smart Video Mastered Successfully!";
-                        document.getElementById('bp-fill').style.background = "#10b981";
+                    if(data.success) {
+                        const progress = data.progress;
+                        document.getElementById('bp-status-text').innerText = data.status;
+                        document.getElementById('bp-percent').innerText = progress + "%";
+                        document.getElementById('bp-fill').style.width = progress + "%";
                         
-                        document.getElementById('final-download').style.display = "block";
-                        document.getElementById('final-download').innerHTML = `
-                            <a href="${data.videoUrl}" target="_blank" style="text-decoration:none;">
-                                <button class="btn-generate" style="background: #10b981; width:auto; padding: 12px 30px;">
-                                    <i class="fas fa-download"></i> Download Final Video
-                                </button>
-                            </a>`;
-                    } else if (data.status.includes("Failed")) {
-                        clearInterval(interval);
-                        document.getElementById('bp-status-text').innerText = "❌ Processing Failed";
-                        document.getElementById('bp-fill').style.background = "#ef4444";
+                        updateSteps(progress);
+
+                        if(progress === 100) {
+                            clearInterval(interval);
+                            document.getElementById('bp-status-text').innerText = "✅ Smart Video Mastered Successfully!";
+                            document.getElementById('bp-fill').style.background = "#10b981";
+                            
+                            document.getElementById('final-download').style.display = "block";
+                            document.getElementById('final-download').innerHTML = `
+                                <a href="${data.videoUrl}" target="_blank" style="text-decoration:none;">
+                                    <button class="btn-generate" style="background: #10b981; width:auto; padding: 12px 30px;">
+                                        <i class="fas fa-download"></i> Download Final Video
+                                    </button>
+                                </a>`;
+                        } else if (data.status.includes("Failed")) {
+                            clearInterval(interval);
+                            document.getElementById('bp-status-text').innerText = "❌ Processing Failed: " + data.status;
+                            document.getElementById('bp-fill').style.background = "#ef4444";
+                        }
                     }
-                }
+                } catch(e) {}
             }, 3000);
         }
     </script>
