@@ -150,26 +150,25 @@ async function fetchHDStockVideos(query, format, usedUrlsSet) {
     return urls;
 }
 
-async function analyzeStrictAudio(audioPath, mimeType, duration, customKeywords) {
+async function analyzeAudioSmart(audioPath, mimeType, duration, title) {
     let retries = 3; 
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
             const uploaded = await ai.files.upload({ file: audioPath, config: { mimeType } });
             
             const prompt = `
-You are a highly precise video editor. Listen strictly to the provided audio (length: ${duration}s).
-Divide the audio into exactly 4-6 second consecutive scenes.
+You are an expert AI video producer. Listen carefully to the provided audio (length: ${duration}s, Topic/Title: "${title}").
+Break the audio down into consecutive 4 to 6 second scenes.
 
-CRITICAL RULES FOR SEARCH QUERIES:
-1. FOCUS ON PROPER NOUNS AND MAIN SUBJECTS: If the speaker mentions a specific monument, place, object, or concept, you MUST extract that EXACT word as your primary search query.
-2. ONE OR TWO WORDS ONLY: Stock video APIs fail on long sentences.
-3. MATCH THE AUDIO EXACTLY: What is spoken must be shown.
-4. User provided backup keywords: [${customKeywords.join(', ')}]. Use them as secondary backups, but spoken nouns take #1 priority.
+CRITICAL INSTRUCTIONS FOR 100% RELEVANT VISUAL MATCHING:
+1. EXTRACT CORE NOUNS & SUBJECTS: For every scene, analyze what is being spoken right now. Extract exact, powerful visual objects, places, animals, science terms, or concepts mentioned in the speech.
+2. ENGLISH SEARCH TERMS ONLY: Stock video APIs (Pexels/Pixabay) only understand short English keywords (1 or 2 words maximum, e.g., "lion running", "galaxy space", "doctor smiling", "rain forest").
+3. NEVER REPEAT THE SAME WORD: Keep variety across scenes so the video looks dynamic and cinematic.
 
-Return JSON ONLY:
+Return JSON ONLY in this exact format:
 {
   "scenes": [
-    { "start": 0, "end": 5.5, "narration": "Exact wording spoken...", "searchQueries": ["Planet", "space"] }
+    { "start": 0, "end": 5.0, "narration": "Spoken text here...", "searchQueries": ["galaxy", "stars"] }
   ]
 }
 `;
@@ -182,23 +181,21 @@ Return JSON ONLY:
     }
 }
 
-async function runVideoGenerationJob(jobId, audioPath, title, format, mimeType, customKeywordsStr) {
+async function runVideoGenerationJob(jobId, audioPath, title, format, mimeType) {
     try {
-        activeJobs[jobId].status = "Analyzing audio specifics...";
+        activeJobs[jobId].status = "Analyzing audio & topic...";
         const totalDuration = await getAudioDuration(audioPath);
-        const customKeywordsArray = customKeywordsStr ? customKeywordsStr.split(',').map(k => k.trim()).filter(Boolean) : [];
         activeJobs[jobId].progress = 10;
-        activeJobs[jobId].status = "AI extracting exact visual nouns...";
+        activeJobs[jobId].status = "AI extracting exact visual matches...";
 
-        let scenes = await analyzeStrictAudio(audioPath, mimeType, totalDuration, customKeywordsArray);
+        let scenes = await analyzeAudioSmart(audioPath, mimeType, totalDuration, title);
         if (!scenes || scenes.length === 0) {
             scenes = [];
-            const keywordsToUse = customKeywordsArray.length > 0 ? customKeywordsArray : (title ? title.split(' ') : ["cinematic"]);
-            let keywordIdx = 0;
+            const fallbackWords = title ? title.split(' ') : ["cinematic", "nature"];
+            let idx = 0;
             for (let t = 0; t < totalDuration; t += 4.5) {
-                let endT = Math.min(totalDuration, t + 4.5);
-                scenes.push({ start: t, end: endT, searchQueries: [keywordsToUse[keywordIdx % keywordsToUse.length]] });
-                keywordIdx++;
+                scenes.push({ start: t, end: Math.min(totalDuration, t + 4.5), searchQueries: [fallbackWords[idx % fallbackWords.length]] });
+                idx++;
             }
         }
 
@@ -220,21 +217,12 @@ async function runVideoGenerationJob(jobId, audioPath, title, format, mimeType, 
                 if (urlsForScene.length > 0) break;
             }
 
-            if (urlsForScene.length === 0 && customKeywordsArray.length > 0) {
-                const userKey = customKeywordsArray[i % customKeywordsArray.length];
-                urlsForScene.push(...(await fetchHDStockVideos(userKey, format, globalUsedUrls)));
+            if (urlsForScene.length === 0) {
+                let generalTerm = title ? title.split(" ")[0] : "cinematic background";
+                urlsForScene.push(...(await fetchHDStockVideos(generalTerm, format, globalUsedUrls)));
             }
 
-            if (urlsForScene.length === 0) {
-                let fallbackTerm = title ? title.split(" ")[0] : "nature";
-                urlsForScene.push(...(await fetchHDStockVideos(fallbackTerm, format, globalUsedUrls)));
-            }
-            
-            if (urlsForScene.length === 0) {
-                urlsForScene.push(...(await fetchHDStockVideos("cinematic background", format, globalUsedUrls)));
-            }
-
-            const chosenUrl = urlsForScene[0]; 
+            const chosenUrl = urlsForScene[0] || "https://images.pexels.com/videos/854132/free-video-854132.mp4"; 
             globalUsedUrls.add(chosenUrl);
             const rawClip = path.join(TEMP_DIR, `raw-${jobId}-${i}.mp4`);
             const processedClip = path.join(TEMP_DIR, `proc-${jobId}-${i}.mp4`);
@@ -320,7 +308,7 @@ app.post("/generate-exact-video", upload.single("audiofile"), (req, res) => {
 
     const jobId = Date.now().toString();
     activeJobs[jobId] = { progress: 0, status: "Initializing...", videoUrl: null };
-    runVideoGenerationJob(jobId, req.file.path, req.body.title || "", req.body.format || "16:9", req.file.mimetype, req.body.customKeywords);
+    runVideoGenerationJob(jobId, req.file.path, req.body.title || "video", req.body.format || "16:9", req.file.mimetype);
 
     res.json({ success: true, jobId, used: limitStatus.used, limit: limitStatus.limit });
 });
@@ -331,4 +319,4 @@ app.get("/api/status/:jobId", (req, res) => {
     res.json({ success: true, progress: job.progress, status: job.status, videoUrl: job.videoUrl });
 });
 
-app.listen(PORT, "0.0.0.0", () => console.log(`\n🚀 EXACT NOUN MATCHING SERVER RUNNING ON PORT ${PORT}\n`));
+app.listen(PORT, "0.0.0.0", () => console.log(`\n🚀 SMART AUDIO-MATCHING SERVER RUNNING ON PORT ${PORT}\n`));
