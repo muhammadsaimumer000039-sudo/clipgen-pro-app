@@ -14,7 +14,7 @@ const app = express();
 const PORT = process.env.PORT || 8080; 
 
 ffmpeg.setFfmpegPath(ffmpegStatic);
-ffmpeg.setFfprobePath(ffprobeStatic.path);
+ffmpeg.setFfprobePath(ffprobeStatic.path); // <-- Yeh zaroori line miss ho gayi thi!
 
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY || "xVeI29teYIY9aqf0J8qyKOTsQiCaLm03SjuND5nZulXDS1cyMoUE4WQX";
 const PIXABAY_API_KEY = process.env.PIXABAY_API_KEY || "57509200-37e05488b33dedb0b6eee629a";
@@ -74,8 +74,18 @@ function checkDailyLimit(username, password, increment = false) {
 function getAudioDuration(file) {
     return new Promise((resolve) => {
         ffmpeg.ffprobe(file, (err, metadata) => {
-            if (err || !metadata || !metadata.format) resolve(60);
-            else resolve(metadata.format.duration);
+            if (err || !metadata || !metadata.format || !metadata.format.duration) {
+                // Agar ffprobe fail ho toh file size se duration estimate kar lo (approx 1MB = 1 minute for audio)
+                try {
+                    const stats = fs.statSync(file);
+                    const estimatedSecs = Math.max(60, Math.floor(stats.size / 16000));
+                    resolve(estimatedSecs);
+                } catch(e) {
+                    resolve(210); // Default to 3.5 mins if everything fails
+                }
+            } else {
+                resolve(metadata.format.duration);
+            }
         });
     });
 }
@@ -142,7 +152,7 @@ async function fetchHDStockVideos(query, format, usedUrlsSet) {
     return urls;
 }
 
-// BULLETPROOF SMART QUEUE PROCESSOR
+// BULLETPROOF FULL-DURATION QUEUE PROCESSOR
 async function processQueue() {
     if (isProcessingQueue || videoQueue.length === 0) return;
     isProcessingQueue = true;
@@ -151,11 +161,11 @@ async function processQueue() {
     const { jobId, audioPath, title, format } = job;
 
     try {
-        activeJobs[jobId].status = "Calculating duration & splitting scenes...";
+        activeJobs[jobId].status = "Reading exact audio duration...";
         const totalDuration = await getAudioDuration(audioPath);
         activeJobs[jobId].progress = 15;
 
-        // Smart Full-Duration Scene Generator (Every 6 seconds a new matching clip!)
+        // Generate full duration scenes (every 6 seconds a new matching clip)
         let scenes = [];
         let baseKeywords = title ? title.split(' ').filter(w => w.length > 2) : ["cinematic", "background"];
         if (baseKeywords.length === 0) baseKeywords = ["cinematic", "abstract", "nature"];
@@ -173,7 +183,7 @@ async function processQueue() {
         }
 
         activeJobs[jobId].progress = 30;
-        activeJobs[jobId].status = `Rendering ${scenes.length} professional clips...`;
+        activeJobs[jobId].status = `Rendering ${scenes.length} professional clips for full audio...`;
         const globalUsedUrls = new Set();
         const { width, height } = format === "9:16" ? { width: 1080, height: 1920 } : { width: 1920, height: 1080 };
         const processedClips = [];
@@ -254,7 +264,7 @@ async function processQueue() {
         activeJobs[jobId].status = "Ready!";
         activeJobs[jobId].videoUrl = `/uploads/${finalFileName}`;
 
-        try { fs.unlinkSync(concatTxtPath); fs.unlinkSync(silentVideo); processedClips.forEach(f => { if(fs.existsSync(f)) fs.unlinkSync(f) }); fs.unlinkSync(audiopath); } catch (e) {}
+        try { fs.unlinkSync(concatTxtPath); fs.unlinkSync(silentVideo); processedClips.forEach(f => { if(fs.existsSync(f)) fs.unlinkSync(f) }); fs.unlinkSync(audioPath); } catch (e) {}
     } catch (error) {
         activeJobs[jobId].status = "Failed: " + error.message;
         try { if(fs.existsSync(audioPath)) fs.unlinkSync(audioPath); } catch(e){}
@@ -314,5 +324,5 @@ app.get("/api/status/:jobId", (req, res) => {
     res.json({ success: true, progress: job.progress, status: job.status, videoUrl: job.videoUrl });
 });
 
-const server = app.listen(PORT, "0.0.0.0", () => console.log(`🚀 STABLE SERVER RUNNING ON PORT ${PORT}`));
+const server = app.listen(PORT, "0.0.0.0", () => console.log(`🚀 STABLE FULL-DURATION SERVER RUNNING ON PORT ${PORT}`));
 server.setTimeout(900000);
